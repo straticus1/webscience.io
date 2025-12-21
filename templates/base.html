@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WebScience.io - Web Analysis Swiss Army Knife{% endblock %}</title>
+    <meta name="description" content="{% block description %}Comprehensive web analysis: HTTP inspection, security scanning, performance testing, SEO analysis, and uptime monitoring.{% endblock %}">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #1a1a24;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+        }
+        body {
+            background: var(--bg-primary);
+            color: #e2e8f0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        }
+        .btn-secondary { background: #374151; }
+        .btn-secondary:hover { background: #4b5563; }
+        .gradient-text {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .hero-gradient {
+            background: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+        }
+        .tool-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tool-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+        .tool-icon.red { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
+        .tool-icon.green { background: linear-gradient(135deg, #10b981 0%, #047857 100%); }
+        .tool-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+        .tool-icon.pink { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
+        .tool-icon.yellow { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); }
+
+        .input-dark {
+            background: var(--bg-secondary);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 12px;
+            color: #e2e8f0;
+            transition: all 0.2s;
+        }
+        .input-dark:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .input-dark::placeholder { color: #64748b; }
+
+        .grade-badge {
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .grade-A { background: #10b981; color: white; }
+        .grade-B { background: #3b82f6; color: white; }
+        .grade-C { background: #f59e0b; color: black; }
+        .grade-D { background: #f97316; color: white; }
+        .grade-F { background: #ef4444; color: white; }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(99, 102, 241, 0.3);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .result-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        pre {
+            background: #0d0d12;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+
+        .tab-active {
+            border-bottom: 2px solid #6366f1;
+            color: #6366f1;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col">
+    <nav class="bg-gray-900/80 backdrop-blur-lg border-b border-gray-800 px-6 py-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="/" class="text-2xl font-bold flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                    <i class="fas fa-flask text-white text-lg"></i>
+                </div>
+                <span class="gradient-text">WebScience.io</span>
+            </a>
+            <div class="flex items-center gap-6">
+                <a href="/http" class="hover:text-indigo-400 transition">HTTP</a>
+                <a href="/security" class="hover:text-indigo-400 transition">Security</a>
+                <a href="/performance" class="hover:text-indigo-400 transition">Performance</a>
+                <a href="/seo" class="hover:text-indigo-400 transition">SEO</a>
+                <a href="/screenshot" class="hover:text-indigo-400 transition">Screenshot</a>
+                {% if session.get('user_id') %}
+                <a href="/monitor" class="hover:text-indigo-400 transition">Monitor</a>
+                <a href="/dashboard" class="hover:text-indigo-400 transition">Dashboard</a>
+                <a href="https://dnsscience.io/logout" class="text-gray-400 hover:text-white">Logout</a>
+                {% else %}
+                <a href="https://dnsscience.io/login?next=https://webscience.io/dashboard" class="btn-primary px-4 py-2 rounded-lg font-medium">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-gray-800 mt-12 py-8">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="grid grid-cols-4 gap-8 mb-8">
+                <div>
+                    <h4 class="font-bold text-indigo-400 mb-4">Tools</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="/http" class="hover:text-white">HTTP Observatory</a></li>
+                        <li><a href="/security" class="hover:text-white">Security Scanner</a></li>
+                        <li><a href="/performance" class="hover:text-white">Performance Lab</a></li>
+                        <li><a href="/seo" class="hover:text-white">SEO Inspector</a></li>
+                        <li><a href="/screenshot" class="hover:text-white">Visual Capture</a></li>
+                        <li><a href="/monitor" class="hover:text-white">Uptime Monitor</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-indigo-400 mb-4">Resources</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="/docs" class="hover:text-white">Documentation</a></li>
+                        <li><a href="/api" class="hover:text-white">API Reference</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-indigo-400 mb-4">*Science.io Ecosystem</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="https://dnsscience.io" class="hover:text-white">DNSScience.io</a></li>
+                        <li><a href="https://hostscience.io" class="hover:text-white">HostScience.io</a></li>
+                        <li><a href="/" class="hover:text-white text-indigo-400">WebScience.io</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold text-indigo-400 mb-4">Ecosystem</h4>
+                    <ul class="space-y-2 text-gray-400">
+                        <li><a href="https://ipscience.io" class="hover:text-white">IPScience.io</a></li>
+                        <li><a href="https://web3dns.io" class="hover:text-white">Web3DNS.io</a></li>
+                        <li><a href="https://flipdomain.io" class="hover:text-white">FlipDomain.io</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="text-center text-gray-500 pt-8 border-t border-gray-800">
+                Part of the <a href="https://afterdarksys.com" class="text-indigo-400 hover:underline">After Dark Systems</a> ecosystem
+            </div>
+        </div>
+    </footer>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

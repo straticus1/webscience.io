@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Analyze {{ url }} - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-6 py-12">
+    <!-- URL Input Bar -->
+    <div class="mb-8">
+        <form id="analyzeForm" class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-globe absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" value="{{ url }}" placeholder="Enter URL to analyze..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" id="analyzeBtn" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-2">
+                <i class="fas fa-search"></i>
+                <span>Analyze All</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Tool Tabs -->
+    <div class="flex gap-4 mb-8 border-b border-gray-800 overflow-x-auto pb-1">
+        <button class="tab-btn px-4 py-3 whitespace-nowrap transition tab-active" data-tool="all">
+            <i class="fas fa-layer-group mr-2"></i>All Tools
+        </button>
+        {% for key, tool in tools.items() %}
+        <button class="tab-btn px-4 py-3 whitespace-nowrap transition hover:text-indigo-400" data-tool="{{ key }}">
+            <i class="fas {{ tool.icon }} mr-2"></i>{{ tool.name }}
+        </button>
+        {% endfor %}
+    </div>
+
+    <!-- Results Container -->
+    <div id="resultsContainer">
+        <!-- Initial state -->
+        <div id="initialState" class="text-center py-20">
+            <div class="w-20 h-20 rounded-2xl bg-gray-800 flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-flask text-4xl text-gray-600"></i>
+            </div>
+            <h2 class="text-2xl font-semibold text-gray-400 mb-2">Ready to Analyze</h2>
+            <p class="text-gray-500">Enter a URL above and click Analyze to run all tools</p>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loadingState" class="hidden">
+            <div class="grid md:grid-cols-2 gap-6">
+                {% for key, tool in tools.items() %}
+                <div class="card p-6" id="loading-{{ key }}">
+                    <div class="flex items-center gap-4">
+                        <div class="loading-spinner"></div>
+                        <div>
+                            <h3 class="font-semibold">{{ tool.name }}</h3>
+                            <p class="text-sm text-gray-400">Analyzing...</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div id="resultsState" class="hidden space-y-6">
+            <!-- HTTP Results -->
+            <div id="result-http" class="card p-6 hidden">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="tool-icon blue">
+                        <i class="fas fa-globe text-white"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold">HTTP Observatory</h3>
+                        <p class="text-sm text-gray-400">Headers, redirects, response analysis</p>
+                    </div>
+                </div>
+                <div id="http-content"></div>
+            </div>
+
+            <!-- Security Results -->
+            <div id="result-security" class="card p-6 hidden">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="tool-icon red">
+                        <i class="fas fa-shield-halved text-white"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-semibold">Security Scanner</h3>
+                        <p class="text-sm text-gray-400">SSL/TLS and security headers</p>
+                    </div>
+                    <div id="security-grade"></div>
+                </div>
+                <div id="security-content"></div>
+            </div>
+
+            <!-- Performance Results -->
+            <div id="result-performance" class="card p-6 hidden">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="tool-icon green">
+                        <i class="fas fa-gauge-high text-white"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-semibold">Performance Lab</h3>
+                        <p class="text-sm text-gray-400">Speed and timing metrics</p>
+                    </div>
+                    <div id="performance-grade"></div>
+                </div>
+                <div id="performance-content"></div>
+            </div>
+
+            <!-- SEO Results -->
+            <div id="result-seo" class="card p-6 hidden">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="tool-icon purple">
+                        <i class="fas fa-magnifying-glass-chart text-white"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-xl font-semibold">SEO Inspector</h3>
+                        <p class="text-sm text-gray-400">Meta tags and structured data</p>
+                    </div>
+                    <div id="seo-grade"></div>
+                </div>
+                <div id="seo-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const tools = ['http', 'security', 'performance', 'seo'];
+let currentResults = {};
+
+document.getElementById('analyzeForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    // Update URL in browser
+    history.pushState({}, '', `/analyze?url=${encodeURIComponent(url)}`);
+
+    // Show loading state
+    document.getElementById('initialState').classList.add('hidden');
+    document.getElementById('resultsState').classList.add('hidden');
+    document.getElementById('loadingState').classList.remove('hidden');
+
+    // Run all analyses in parallel
+    const promises = tools.map(async (tool) => {
+        try {
+            const response = await fetch(`/api/${tool}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+            const data = await response.json();
+            currentResults[tool] = data;
+            updateToolResult(tool, data);
+        } catch (err) {
+            currentResults[tool] = { error: err.message };
+            updateToolResult(tool, { error: err.message });
+        }
+    });
+
+    await Promise.all(promises);
+
+    // Show results
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('resultsState').classList.remove('hidden');
+});
+
+function updateToolResult(tool, data) {
+    const resultDiv = document.getElementById(`result-${tool}`);
+    const contentDiv = document.getElementById(`${tool}-content`);
+    resultDiv.classList.remove('hidden');
+
+    if (data.error) {
+        contentDiv.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-circle mr-2"></i>${data.error}</div>`;
+        return;
+    }
+
+    switch(tool) {
+        case 'http':
+            renderHttpResults(data, contentDiv);
+            break;
+        case 'security':
+            renderSecurityResults(data, contentDiv);
+            break;
+        case 'performance':
+            renderPerformanceResults(data, contentDiv);
+            break;
+        case 'seo':
+            renderSeoResults(data, contentDiv);
+            break;
+    }
+}
+
+function renderHttpResults(data, container) {
+    let html = '';
+
+    // Redirect chain
+    if (data.redirects && data.redirects.length > 0) {
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-route mr-2"></i>Request Chain (${data.redirects.length} hop${data.redirects.length > 1 ? 's' : ''})</h4>
+            <div class="space-y-2">`;
+
+        data.redirects.forEach((r, i) => {
+            const isLast = i === data.redirects.length - 1;
+            const statusColor = r.status_code < 300 ? 'text-green-400' : r.status_code < 400 ? 'text-yellow-400' : 'text-red-400';
+            html += `
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">${i + 1}</span>
+                    <span class="${statusColor} font-mono">${r.status_code}</span>
+                    <span class="text-gray-400 truncate flex-grow">${r.url}</span>
+                    <span class="text-gray-500">${r.time_ms}ms</span>
+                </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Response info
+    if (data.response) {
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-server mr-2"></i>Response</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><span class="text-gray-400">Status:</span> <span class="text-green-400">${data.response.status_code} ${data.response.status_text}</span></div>
+                <div><span class="text-gray-400">Server:</span> ${data.response.server || 'Unknown'}</div>
+                <div><span class="text-gray-400">Content-Type:</span> ${data.response.content_type || 'Unknown'}</div>
+                <div><span class="text-gray-400">Total Time:</span> ${data.timing?.total_ms}ms</div>
+            </div>
+        </div>`;
+    }
+
+    // Headers
+    if (data.headers) {
+        html += `<div class="result-section p-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-list mr-2"></i>Response Headers</h4>
+            <pre class="text-xs"><code>`;
+        Object.entries(data.headers).forEach(([key, value]) => {
+            html += `<span class="text-indigo-400">${key}:</span> ${value}\n`;
+        });
+        html += `</code></pre></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderSecurityResults(data, container) {
+    const gradeDiv = document.getElementById('security-grade');
+    const grade = data.overall_grade?.grade || 'N/A';
+    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade.replace('+', '')}">${grade}</span>`;
+
+    let html = '';
+
+    // SSL Info
+    if (data.ssl) {
+        const sslOk = data.ssl.valid;
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3">
+                <i class="fas fa-lock mr-2 ${sslOk ? 'text-green-400' : 'text-red-400'}"></i>
+                SSL/TLS Certificate
+            </h4>`;
+
+        if (sslOk) {
+            html += `<div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                <div><span class="text-gray-400">Subject:</span> ${data.ssl.subject}</div>
+                <div><span class="text-gray-400">Issuer:</span> ${data.ssl.issuer}</div>
+                <div><span class="text-gray-400">Protocol:</span> ${data.ssl.protocol}</div>
+                <div><span class="text-gray-400">Cipher:</span> ${data.ssl.cipher}</div>
+                <div><span class="text-gray-400">Key Size:</span> ${data.ssl.key_size} bits</div>
+                <div><span class="text-gray-400">Expires:</span>
+                    <span class="${data.ssl.days_left > 30 ? 'text-green-400' : 'text-yellow-400'}">${data.ssl.days_left} days</span>
+                </div>
+            </div>`;
+        } else {
+            html += `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>${data.ssl.error}</div>`;
+        }
+        html += `</div>`;
+    }
+
+    // Security Headers
+    if (data.headers?.headers) {
+        html += `<div class="result-section p-4">
+            <h4 class="font-semibold mb-3">
+                <i class="fas fa-shield-halved mr-2"></i>
+                Security Headers
+                <span class="text-sm font-normal text-gray-400">(${data.headers.percentage}% - Grade ${data.headers.grade})</span>
+            </h4>
+            <div class="space-y-2">`;
+
+        Object.entries(data.headers.headers).forEach(([header, info]) => {
+            const present = info.present;
+            html += `<div class="flex items-center justify-between text-sm py-2 border-b border-gray-800">
+                <div class="flex items-center gap-2">
+                    <i class="fas ${present ? 'fa-check-circle text-green-400' : 'fa-times-circle text-red-400'}"></i>
+                    <span>${header}</span>
+                </div>
+                ${present ? `<span class="text-gray-500 text-xs truncate max-w-md">${info.value}</span>` : '<span class="text-gray-600">Missing</span>'}
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderPerformanceResults(data, container) {
+    const gradeDiv = document.getElementById('performance-grade');
+    const grade = data.score?.grade || 'N/A';
+    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade}">${grade}</span>`;
+
+    let html = '';
+
+    // Timing metrics
+    if (data.timing) {
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-stopwatch mr-2"></i>Timing Metrics</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-3 bg-gray-800 rounded-lg">
+                    <div class="text-2xl font-bold text-blue-400">${data.timing.dns_ms}ms</div>
+                    <div class="text-xs text-gray-400">DNS Lookup</div>
+                </div>
+                <div class="text-center p-3 bg-gray-800 rounded-lg">
+                    <div class="text-2xl font-bold ${data.timing.ttfb_ms < 600 ? 'text-green-400' : 'text-yellow-400'}">${data.timing.ttfb_ms}ms</div>
+                    <div class="text-xs text-gray-400">Time to First Byte</div>
+                </div>
+                <div class="text-center p-3 bg-gray-800 rounded-lg">
+                    <div class="text-2xl font-bold text-purple-400">${data.timing.download_ms}ms</div>
+                    <div class="text-xs text-gray-400">Download Time</div>
+                </div>
+                <div class="text-center p-3 bg-gray-800 rounded-lg">
+                    <div class="text-2xl font-bold text-indigo-400">${data.timing.total_ms}ms</div>
+                    <div class="text-xs text-gray-400">Total Time</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Size & Resources
+    if (data.size) {
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-weight-hanging mr-2"></i>Page Size & Resources</h4>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div><span class="text-gray-400">Size:</span> ${data.size.total_kb} KB</div>
+                <div><span class="text-gray-400">Compressed:</span>
+                    ${data.size.compressed ? '<span class="text-green-400">Yes</span>' : '<span class="text-red-400">No</span>'}
+                </div>
+                <div><span class="text-gray-400">Scripts:</span> ${data.resources?.scripts || 0}</div>
+                <div><span class="text-gray-400">Stylesheets:</span> ${data.resources?.stylesheets || 0}</div>
+            </div>
+        </div>`;
+    }
+
+    // Recommendations
+    if (data.recommendations?.length > 0) {
+        html += `<div class="result-section p-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-lightbulb mr-2"></i>Recommendations</h4>
+            <div class="space-y-2">`;
+        data.recommendations.forEach(rec => {
+            const icon = rec.type === 'error' ? 'fa-times-circle text-red-400' :
+                        rec.type === 'warning' ? 'fa-exclamation-triangle text-yellow-400' : 'fa-info-circle text-blue-400';
+            html += `<div class="flex items-start gap-2 text-sm">
+                <i class="fas ${icon} mt-1"></i>
+                <div><span class="font-medium">${rec.category}:</span> ${rec.message}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+function renderSeoResults(data, container) {
+    const gradeDiv = document.getElementById('seo-grade');
+    const grade = data.score?.grade || 'N/A';
+    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade}">${grade} (${data.score?.percentage}%)</span>`;
+
+    let html = '';
+
+    // Meta Tags
+    if (data.meta) {
+        html += `<div class="result-section p-4 mb-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-tags mr-2"></i>Meta Tags</h4>
+            <div class="space-y-3 text-sm">
+                <div><span class="text-gray-400">Title:</span> ${data.meta.title || '<span class="text-red-400">Missing</span>'}</div>
+                <div><span class="text-gray-400">Description:</span> ${data.meta.description || '<span class="text-red-400">Missing</span>'}</div>
+                <div><span class="text-gray-400">Canonical:</span> ${data.meta.canonical || '<span class="text-yellow-400">Not set</span>'}</div>
+                <div><span class="text-gray-400">Viewport:</span> ${data.meta.viewport ? '<span class="text-green-400">Set</span>' : '<span class="text-red-400">Missing</span>'}</div>
+            </div>
+        </div>`;
+
+        // Open Graph
+        if (Object.keys(data.meta.og || {}).length > 0) {
+            html += `<div class="result-section p-4 mb-4">
+                <h4 class="font-semibold mb-3"><i class="fab fa-facebook mr-2"></i>Open Graph</h4>
+                <div class="grid grid-cols-2 gap-2 text-sm">`;
+            Object.entries(data.meta.og).forEach(([key, value]) => {
+                html += `<div><span class="text-gray-400">og:${key}:</span> ${value || 'Not set'}</div>`;
+            });
+            html += `</div></div>`;
+        }
+
+        // Structured Data
+        if (data.meta.structured_data?.length > 0) {
+            html += `<div class="result-section p-4 mb-4">
+                <h4 class="font-semibold mb-3"><i class="fas fa-code mr-2"></i>Structured Data (JSON-LD)</h4>
+                <pre class="text-xs"><code>${JSON.stringify(data.meta.structured_data, null, 2)}</code></pre>
+            </div>`;
+        }
+    }
+
+    // Issues & Warnings
+    if (data.score?.issues?.length > 0 || data.score?.warnings?.length > 0) {
+        html += `<div class="result-section p-4">
+            <h4 class="font-semibold mb-3"><i class="fas fa-clipboard-check mr-2"></i>Issues & Recommendations</h4>
+            <div class="space-y-2">`;
+
+        (data.score.issues || []).forEach(issue => {
+            html += `<div class="flex items-center gap-2 text-sm text-red-400">
+                <i class="fas fa-times-circle"></i>${issue}
+            </div>`;
+        });
+        (data.score.warnings || []).forEach(warning => {
+            html += `<div class="flex items-center gap-2 text-sm text-yellow-400">
+                <i class="fas fa-exclamation-triangle"></i>${warning}
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+        btn.classList.add('tab-active');
+
+        const tool = btn.dataset.tool;
+        if (tool === 'all') {
+            document.querySelectorAll('[id^="result-"]').forEach(el => {
+                if (currentResults[el.id.replace('result-', '')]) {
+                    el.classList.remove('hidden');
+                }
+            });
+        } else {
+            document.querySelectorAll('[id^="result-"]').forEach(el => {
+                el.classList.add('hidden');
+            });
+            if (currentResults[tool]) {
+                document.getElementById(`result-${tool}`).classList.remove('hidden');
+            }
+        }
+    });
+});
+
+// Auto-analyze if URL is provided
+{% if url %}
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('analyzeForm').dispatchEvent(new Event('submit'));
+});
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}HTTP Observatory - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-12">
+        <div class="tool-icon blue w-16 h-16 mx-auto mb-4">
+            <i class="fas fa-globe text-white text-2xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-4">HTTP Observatory</h1>
+        <p class="text-gray-400 text-lg">Analyze HTTP headers, redirect chains, and response details</p>
+    </div>
+
+    <form id="httpForm" class="mb-8">
+        <div class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-link absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" placeholder="Enter URL..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-paper-plane"></i>
+                Analyze
+            </button>
+        </div>
+    </form>
+
+    <div id="results" class="hidden">
+        <div id="resultsContent"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-12">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Analyzing HTTP response...</p>
+    </div>
+
+    <!-- Features -->
+    <div class="mt-16 grid md:grid-cols-3 gap-6">
+        <div class="card p-6">
+            <i class="fas fa-route text-blue-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Redirect Tracing</h3>
+            <p class="text-gray-400 text-sm">Follow and visualize the complete redirect chain from source to destination</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-list text-blue-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Header Analysis</h3>
+            <p class="text-gray-400 text-sm">View all response headers with explanations and best practices</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-stopwatch text-blue-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Response Timing</h3>
+            <p class="text-gray-400 text-sm">Measure response times at each hop in the request chain</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('httpForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/http/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+
+        renderResults(data);
+    } catch (err) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-red-400">
+                <i class="fas fa-exclamation-circle mr-2"></i>Error: ${err.message}
+            </div>`;
+    }
+});
+
+function renderResults(data) {
+    const container = document.getElementById('resultsContent');
+
+    if (data.error) {
+        container.innerHTML = `<div class="card p-6 text-red-400">
+            <i class="fas fa-exclamation-circle mr-2"></i>${data.error}
+        </div>`;
+        return;
+    }
+
+    let html = '';
+
+    // Redirect chain
+    if (data.redirects?.length > 0) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-route mr-2"></i>Request Chain</h3>
+            <div class="space-y-3">`;
+
+        data.redirects.forEach((r, i) => {
+            const statusColor = r.status_code < 300 ? 'bg-green-500' : r.status_code < 400 ? 'bg-yellow-500' : 'bg-red-500';
+            html += `
+                <div class="flex items-center gap-4 p-3 bg-gray-800 rounded-lg">
+                    <span class="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center font-bold">${i + 1}</span>
+                    <span class="px-3 py-1 rounded ${statusColor} text-white font-mono text-sm">${r.status_code}</span>
+                    <span class="flex-grow truncate text-gray-300">${r.url}</span>
+                    <span class="text-gray-500 text-sm">${r.time_ms}ms</span>
+                </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Response summary
+    if (data.response) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-server mr-2"></i>Response Summary</h3>
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm mb-1">Final URL</div>
+                    <div class="font-mono text-sm truncate">${data.final_url}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm mb-1">Status</div>
+                    <div class="text-green-400 font-semibold">${data.response.status_code} ${data.response.status_text}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm mb-1">Server</div>
+                    <div>${data.response.server || 'Not disclosed'}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm mb-1">Content-Type</div>
+                    <div class="font-mono text-sm">${data.response.content_type || 'Unknown'}</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Headers
+    if (data.headers) {
+        html += `<div class="card p-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-list mr-2"></i>Response Headers</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-gray-400 border-b border-gray-700">
+                            <th class="pb-2">Header</th>
+                            <th class="pb-2">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        Object.entries(data.headers).forEach(([key, value]) => {
+            html += `<tr class="border-b border-gray-800">
+                <td class="py-2 text-indigo-400 font-mono">${key}</td>
+                <td class="py-2 text-gray-300 font-mono break-all">${value}</td>
+            </tr>`;
+        });
+        html += `</tbody></table></div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Performance Lab - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-12">
+        <div class="tool-icon green w-16 h-16 mx-auto mb-4">
+            <i class="fas fa-gauge-high text-white text-2xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-4">Performance Lab</h1>
+        <p class="text-gray-400 text-lg">Page speed analysis, timing metrics, and optimization insights</p>
+    </div>
+
+    <form id="perfForm" class="mb-8">
+        <div class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-stopwatch absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" placeholder="Enter URL to test..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-play"></i>
+                Test
+            </button>
+        </div>
+    </form>
+
+    <div id="results" class="hidden">
+        <div id="resultsContent"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-12">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Testing performance...</p>
+    </div>
+
+    <!-- Metrics explained -->
+    <div class="mt-16 grid md:grid-cols-2 gap-6">
+        <div class="card p-6">
+            <i class="fas fa-hourglass-start text-green-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Time to First Byte (TTFB)</h3>
+            <p class="text-gray-400 text-sm">Time from request to first byte received. Under 600ms is good.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-download text-green-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Download Time</h3>
+            <p class="text-gray-400 text-sm">Time to download the full response after first byte.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-compress text-green-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Compression</h3>
+            <p class="text-gray-400 text-sm">Gzip or Brotli compression reduces transfer size significantly.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-cubes text-green-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Resource Count</h3>
+            <p class="text-gray-400 text-sm">Number of scripts, stylesheets, and images on the page.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('perfForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/performance/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        renderResults(data);
+    } catch (err) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-red-400">
+                <i class="fas fa-exclamation-circle mr-2"></i>Error: ${err.message}
+            </div>`;
+    }
+});
+
+function renderResults(data) {
+    const container = document.getElementById('resultsContent');
+
+    if (data.error) {
+        container.innerHTML = `<div class="card p-6 text-red-400">
+            <i class="fas fa-exclamation-circle mr-2"></i>${data.error}
+        </div>`;
+        return;
+    }
+
+    const grade = data.score?.grade || 'N/A';
+    const gradeClass = `grade-${grade}`;
+
+    let html = `
+        <div class="card p-8 mb-6 text-center">
+            <div class="text-gray-400 mb-2">Performance Score</div>
+            <div class="inline-block px-8 py-4 rounded-xl text-4xl font-bold ${gradeClass}">${grade}</div>
+            <div class="text-gray-500 mt-2">${data.score?.value || 0}/100</div>
+        </div>`;
+
+    // Timing metrics
+    if (data.timing) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-stopwatch mr-2"></i>Timing Breakdown</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-gray-800 rounded-xl">
+                    <div class="text-3xl font-bold text-blue-400">${data.timing.dns_ms}</div>
+                    <div class="text-sm text-gray-400">DNS (ms)</div>
+                </div>
+                <div class="text-center p-4 bg-gray-800 rounded-xl">
+                    <div class="text-3xl font-bold ${data.timing.ttfb_ms < 600 ? 'text-green-400' : data.timing.ttfb_ms < 1000 ? 'text-yellow-400' : 'text-red-400'}">${data.timing.ttfb_ms}</div>
+                    <div class="text-sm text-gray-400">TTFB (ms)</div>
+                </div>
+                <div class="text-center p-4 bg-gray-800 rounded-xl">
+                    <div class="text-3xl font-bold text-purple-400">${data.timing.download_ms}</div>
+                    <div class="text-sm text-gray-400">Download (ms)</div>
+                </div>
+                <div class="text-center p-4 bg-gray-800 rounded-xl">
+                    <div class="text-3xl font-bold text-indigo-400">${data.timing.total_ms}</div>
+                    <div class="text-sm text-gray-400">Total (ms)</div>
+                </div>
+            </div>
+
+            <!-- Visual timeline -->
+            <div class="mt-6 bg-gray-800 rounded-lg p-4">
+                <div class="text-sm text-gray-400 mb-2">Timeline</div>
+                <div class="h-8 rounded-lg overflow-hidden flex">
+                    <div class="bg-blue-500 flex items-center justify-center text-xs" style="width: ${(data.timing.dns_ms / data.timing.total_ms) * 100}%">DNS</div>
+                    <div class="bg-yellow-500 flex items-center justify-center text-xs text-black" style="width: ${((data.timing.ttfb_ms - data.timing.dns_ms) / data.timing.total_ms) * 100}%">Wait</div>
+                    <div class="bg-green-500 flex items-center justify-center text-xs" style="width: ${(data.timing.download_ms / data.timing.total_ms) * 100}%">Download</div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Size & Resources
+    if (data.size) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-weight-hanging mr-2"></i>Size & Resources</h3>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <div class="text-4xl font-bold mb-1">${data.size.total_kb} <span class="text-lg text-gray-400">KB</span></div>
+                    <div class="text-gray-400">Total page size</div>
+                    <div class="mt-2 flex items-center gap-2">
+                        <span class="px-2 py-1 rounded ${data.size.compressed ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'} text-sm">
+                            ${data.size.compressed ? '<i class="fas fa-check mr-1"></i>Compressed' : '<i class="fas fa-times mr-1"></i>Not compressed'}
+                        </span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="text-center p-3 bg-gray-800 rounded-lg">
+                        <div class="text-2xl font-bold text-yellow-400">${data.resources?.scripts || 0}</div>
+                        <div class="text-xs text-gray-400">Scripts</div>
+                    </div>
+                    <div class="text-center p-3 bg-gray-800 rounded-lg">
+                        <div class="text-2xl font-bold text-pink-400">${data.resources?.stylesheets || 0}</div>
+                        <div class="text-xs text-gray-400">Styles</div>
+                    </div>
+                    <div class="text-center p-3 bg-gray-800 rounded-lg">
+                        <div class="text-2xl font-bold text-green-400">${data.resources?.images || 0}</div>
+                        <div class="text-xs text-gray-400">Images</div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Recommendations
+    if (data.recommendations?.length > 0) {
+        html += `<div class="card p-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-lightbulb mr-2"></i>Recommendations</h3>
+            <div class="space-y-3">`;
+
+        data.recommendations.forEach(rec => {
+            const colors = {
+                error: 'border-red-500 bg-red-500/10',
+                warning: 'border-yellow-500 bg-yellow-500/10',
+                info: 'border-blue-500 bg-blue-500/10'
+            };
+            const icons = {
+                error: 'fa-times-circle text-red-400',
+                warning: 'fa-exclamation-triangle text-yellow-400',
+                info: 'fa-info-circle text-blue-400'
+            };
+            html += `<div class="p-4 rounded-lg border-l-4 ${colors[rec.type]}">
+                <div class="flex items-start gap-3">
+                    <i class="fas ${icons[rec.type]} mt-1"></i>
+                    <div>
+                        <div class="font-semibold">${rec.category}</div>
+                        <div class="text-gray-400">${rec.message}</div>
+                    </div>
+                </div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-gradient">
+    <!-- Hero Section -->
+    <section class="max-w-7xl mx-auto px-6 py-20 text-center">
+        <div class="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+            <span class="pulse-dot"></span>
+            <span class="text-indigo-400 text-sm">Part of the *Science.io family</span>
+        </div>
+
+        <h1 class="text-5xl md:text-6xl font-bold mb-6">
+            The Web <span class="gradient-text">Swiss Army Knife</span>
+        </h1>
+        <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
+            Comprehensive web analysis in one place. HTTP inspection, security scanning,
+            performance testing, SEO analysis, screenshots, and uptime monitoring.
+        </p>
+
+        <!-- Main URL Input -->
+        <form action="/analyze" method="get" class="max-w-2xl mx-auto mb-8">
+            <div class="flex gap-3">
+                <div class="flex-grow relative">
+                    <i class="fas fa-globe absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                    <input type="text" name="url" placeholder="Enter any URL to analyze..."
+                           class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+                </div>
+                <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-2">
+                    <i class="fas fa-search"></i>
+                    Analyze
+                </button>
+            </div>
+        </form>
+
+        <p class="text-gray-500 text-sm">
+            Try: <a href="/analyze?url=google.com" class="text-indigo-400 hover:underline">google.com</a>
+            <span class="mx-2">|</span>
+            <a href="/analyze?url=github.com" class="text-indigo-400 hover:underline">github.com</a>
+            <span class="mx-2">|</span>
+            <a href="/analyze?url=cloudflare.com" class="text-indigo-400 hover:underline">cloudflare.com</a>
+        </p>
+    </section>
+
+    <!-- Tools Grid -->
+    <section class="max-w-7xl mx-auto px-6 py-16">
+        <h2 class="text-3xl font-bold text-center mb-12">Six Powerful Tools, One Platform</h2>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for key, tool in tools.items() %}
+            <a href="/{{ key }}" class="card p-6 block">
+                <div class="flex items-start gap-4">
+                    <div class="tool-icon {{ tool.color }}">
+                        <i class="fas {{ tool.icon }} text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2">{{ tool.name }}</h3>
+                        <p class="text-gray-400">{{ tool.description }}</p>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="max-w-7xl mx-auto px-6 py-16">
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-bolt text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Lightning Fast</h3>
+                <p class="text-gray-400">Parallel analysis across all tools. Get comprehensive results in seconds.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-code text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">API Access</h3>
+                <p class="text-gray-400">RESTful API for all tools. Integrate web analysis into your workflows.</p>
+            </div>
+            <div class="text-center">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-bell text-white text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-semibold mb-2">Monitoring & Alerts</h3>
+                <p class="text-gray-400">Continuous monitoring with instant alerts when issues arise.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Ecosystem Banner -->
+    <section class="max-w-7xl mx-auto px-6 py-16">
+        <div class="card p-8 text-center bg-gradient-to-r from-indigo-900/50 to-purple-900/50">
+            <h2 class="text-2xl font-bold mb-4">Part of the *Science.io Family</h2>
+            <p class="text-gray-400 mb-6">Complete web infrastructure toolkit</p>
+            <div class="flex justify-center gap-6 flex-wrap">
+                <a href="https://dnsscience.io" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition">
+                    <i class="fas fa-network-wired text-green-400"></i>
+                    <span>DNSScience.io</span>
+                </a>
+                <a href="https://hostscience.io" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition">
+                    <i class="fas fa-cloud text-blue-400"></i>
+                    <span>HostScience.io</span>
+                </a>
+                <span class="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600">
+                    <i class="fas fa-flask text-white"></i>
+                    <span>WebScience.io</span>
+                </span>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Visual Capture - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-12">
+        <div class="tool-icon pink w-16 h-16 mx-auto mb-4">
+            <i class="fas fa-camera text-white text-2xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-4">Visual Capture</h1>
+        <p class="text-gray-400 text-lg">Screenshots, visual diffs, and page archiving</p>
+    </div>
+
+    <form id="screenshotForm" class="mb-8">
+        <div class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-camera absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" placeholder="Enter URL to capture..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-camera"></i>
+                Capture
+            </button>
+        </div>
+    </form>
+
+    <!-- Options -->
+    <div class="card p-6 mb-8">
+        <h3 class="font-semibold mb-4">Capture Options</h3>
+        <div class="grid md:grid-cols-3 gap-4">
+            <div>
+                <label class="text-gray-400 text-sm mb-2 block">Viewport</label>
+                <select class="input-dark w-full py-2 px-3 rounded-lg" id="viewport">
+                    <option value="desktop">Desktop (1920x1080)</option>
+                    <option value="laptop">Laptop (1366x768)</option>
+                    <option value="tablet">Tablet (768x1024)</option>
+                    <option value="mobile">Mobile (375x667)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-gray-400 text-sm mb-2 block">Format</label>
+                <select class="input-dark w-full py-2 px-3 rounded-lg" id="format">
+                    <option value="png">PNG</option>
+                    <option value="jpeg">JPEG</option>
+                    <option value="webp">WebP</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-gray-400 text-sm mb-2 block">Full Page</label>
+                <select class="input-dark w-full py-2 px-3 rounded-lg" id="fullpage">
+                    <option value="false">Viewport Only</option>
+                    <option value="true">Full Page Scroll</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div id="results" class="hidden">
+        <div id="resultsContent"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-12">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Capturing screenshot...</p>
+    </div>
+
+    <!-- Coming soon notice -->
+    <div class="card p-8 text-center bg-gradient-to-r from-pink-900/30 to-purple-900/30">
+        <i class="fas fa-rocket text-4xl text-pink-400 mb-4"></i>
+        <h3 class="text-xl font-semibold mb-2">Full Screenshot Service Coming Soon</h3>
+        <p class="text-gray-400 mb-4">We're setting up headless browser infrastructure for full screenshot capabilities.</p>
+        <p class="text-gray-500 text-sm">In the meantime, try our other tools for immediate results!</p>
+    </div>
+
+    <!-- Features -->
+    <div class="mt-16 grid md:grid-cols-3 gap-6">
+        <div class="card p-6">
+            <i class="fas fa-mobile-alt text-pink-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Multi-Device</h3>
+            <p class="text-gray-400 text-sm">Capture screenshots at desktop, tablet, and mobile viewports</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-code-compare text-pink-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Visual Diff</h3>
+            <p class="text-gray-400 text-sm">Compare screenshots over time to detect visual changes</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-clock-rotate-left text-pink-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Archive History</h3>
+            <p class="text-gray-400 text-sm">Keep historical snapshots of your pages for reference</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('screenshotForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/screenshot/capture', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url,
+                viewport: document.getElementById('viewport').value,
+                format: document.getElementById('format').value,
+                fullpage: document.getElementById('fullpage').value === 'true'
+            })
+        });
+        const data = await response.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-center">
+                <i class="fas fa-info-circle text-4xl text-blue-400 mb-4"></i>
+                <h3 class="text-xl font-semibold mb-2">Screenshot Service</h3>
+                <p class="text-gray-400">${data.message || 'Service initializing...'}</p>
+                <p class="text-gray-500 text-sm mt-2">URL: ${data.url}</p>
+            </div>`;
+    } catch (err) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-red-400 text-center">
+                <i class="fas fa-exclamation-circle text-4xl mb-4"></i>
+                <p>Error: ${err.message}</p>
+            </div>`;
+    }
+});
+</script>
+{% endblock %}

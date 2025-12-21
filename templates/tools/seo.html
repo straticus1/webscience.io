@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}SEO Inspector - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-12">
+        <div class="tool-icon purple w-16 h-16 mx-auto mb-4">
+            <i class="fas fa-magnifying-glass-chart text-white text-2xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-4">SEO Inspector</h1>
+        <p class="text-gray-400 text-lg">Meta tags, Open Graph, Twitter Cards, and structured data analysis</p>
+    </div>
+
+    <form id="seoForm" class="mb-8">
+        <div class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" placeholder="Enter URL to inspect..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-eye"></i>
+                Inspect
+            </button>
+        </div>
+    </form>
+
+    <div id="results" class="hidden">
+        <div id="resultsContent"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-12">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Analyzing SEO elements...</p>
+    </div>
+
+    <!-- SEO elements explained -->
+    <div class="mt-16 grid md:grid-cols-2 gap-6">
+        <div class="card p-6">
+            <i class="fas fa-heading text-purple-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Title & Meta Description</h3>
+            <p class="text-gray-400 text-sm">Essential for search rankings. Title: 30-60 chars, Description: 120-160 chars.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fab fa-facebook text-purple-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Open Graph Tags</h3>
+            <p class="text-gray-400 text-sm">Control how your content appears when shared on Facebook and other platforms.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fab fa-twitter text-purple-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Twitter Cards</h3>
+            <p class="text-gray-400 text-sm">Rich previews for Twitter shares with images and descriptions.</p>
+        </div>
+        <div class="card p-6">
+            <i class="fas fa-code text-purple-400 text-2xl mb-4"></i>
+            <h3 class="font-semibold mb-2">Structured Data</h3>
+            <p class="text-gray-400 text-sm">JSON-LD schema markup for rich search results and knowledge panels.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('seoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/seo/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        renderResults(data);
+    } catch (err) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-red-400">
+                <i class="fas fa-exclamation-circle mr-2"></i>Error: ${err.message}
+            </div>`;
+    }
+});
+
+function renderResults(data) {
+    const container = document.getElementById('resultsContent');
+
+    if (data.error) {
+        container.innerHTML = `<div class="card p-6 text-red-400">
+            <i class="fas fa-exclamation-circle mr-2"></i>${data.error}
+        </div>`;
+        return;
+    }
+
+    const grade = data.score?.grade || 'N/A';
+    const gradeClass = `grade-${grade}`;
+
+    let html = `
+        <div class="card p-8 mb-6 text-center">
+            <div class="text-gray-400 mb-2">SEO Score</div>
+            <div class="inline-block px-8 py-4 rounded-xl text-4xl font-bold ${gradeClass}">${grade}</div>
+            <div class="text-gray-500 mt-2">${data.score?.percentage || 0}/100</div>
+        </div>`;
+
+    // Search preview
+    if (data.meta) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fab fa-google mr-2"></i>Search Preview</h3>
+            <div class="bg-white rounded-lg p-4 text-gray-900">
+                <div class="text-blue-700 text-lg hover:underline cursor-pointer">${data.meta.title || 'No title set'}</div>
+                <div class="text-green-700 text-sm">${data.url}</div>
+                <div class="text-gray-600 text-sm mt-1">${data.meta.description || 'No description set'}</div>
+            </div>
+        </div>`;
+    }
+
+    // Meta Tags
+    if (data.meta) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-tags mr-2"></i>Meta Tags</h3>
+            <div class="space-y-4">
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-gray-400">Title</span>
+                        ${data.meta.title ? `<span class="text-xs text-gray-500">${data.meta.title.length} chars</span>` : ''}
+                    </div>
+                    <div class="${data.meta.title ? '' : 'text-red-400'}">${data.meta.title || 'Missing'}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-gray-400">Description</span>
+                        ${data.meta.description ? `<span class="text-xs text-gray-500">${data.meta.description.length} chars</span>` : ''}
+                    </div>
+                    <div class="${data.meta.description ? '' : 'text-red-400'}">${data.meta.description || 'Missing'}</div>
+                </div>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-gray-800 rounded-lg">
+                        <div class="text-gray-400 mb-1">Canonical</div>
+                        <div class="${data.meta.canonical ? 'font-mono text-sm' : 'text-yellow-400'}">${data.meta.canonical || 'Not set'}</div>
+                    </div>
+                    <div class="p-4 bg-gray-800 rounded-lg">
+                        <div class="text-gray-400 mb-1">Viewport</div>
+                        <div class="${data.meta.viewport ? 'text-green-400' : 'text-red-400'}">${data.meta.viewport ? 'Set' : 'Missing'}</div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }
+
+    // Open Graph
+    if (data.meta?.og && Object.keys(data.meta.og).length > 0) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fab fa-facebook mr-2"></i>Open Graph</h3>
+            <div class="grid md:grid-cols-2 gap-4">`;
+        Object.entries(data.meta.og).forEach(([key, value]) => {
+            if (key === 'image' && value) {
+                html += `<div class="md:col-span-2 p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 mb-2">og:image</div>
+                    <img src="${value}" alt="OG Image" class="max-h-48 rounded" onerror="this.style.display='none'">
+                    <div class="mt-2 text-sm text-gray-500 break-all">${value}</div>
+                </div>`;
+            } else {
+                html += `<div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 mb-1">og:${key}</div>
+                    <div>${value || 'Not set'}</div>
+                </div>`;
+            }
+        });
+        html += `</div></div>`;
+    }
+
+    // Twitter Cards
+    if (data.meta?.twitter && Object.keys(data.meta.twitter).length > 0) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fab fa-twitter mr-2"></i>Twitter Cards</h3>
+            <div class="grid md:grid-cols-2 gap-4">`;
+        Object.entries(data.meta.twitter).forEach(([key, value]) => {
+            html += `<div class="p-4 bg-gray-800 rounded-lg">
+                <div class="text-gray-400 mb-1">twitter:${key}</div>
+                <div>${value || 'Not set'}</div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Structured Data
+    if (data.meta?.structured_data?.length > 0) {
+        html += `<div class="card p-6 mb-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-code mr-2"></i>Structured Data (JSON-LD)</h3>
+            <pre class="text-xs overflow-x-auto"><code>${JSON.stringify(data.meta.structured_data, null, 2)}</code></pre>
+        </div>`;
+    }
+
+    // Issues & Warnings
+    if ((data.score?.issues?.length > 0) || (data.score?.warnings?.length > 0)) {
+        html += `<div class="card p-6">
+            <h3 class="text-xl font-semibold mb-4"><i class="fas fa-clipboard-check mr-2"></i>Issues & Recommendations</h3>
+            <div class="space-y-3">`;
+
+        (data.score?.issues || []).forEach(issue => {
+            html += `<div class="flex items-center gap-3 p-3 bg-red-500/10 rounded-lg text-red-400">
+                <i class="fas fa-times-circle"></i>
+                <span>${issue}</span>
+            </div>`;
+        });
+        (data.score?.warnings || []).forEach(warning => {
+            html += `<div class="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-lg text-yellow-400">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span>${warning}</span>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}

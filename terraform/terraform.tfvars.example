@@ -1,0 +1,11 @@
+# OCI Configuration
+compartment_id = "ocid1.compartment.oc1..your-compartment-id"
+oci_region     = "us-ashburn-1"
+ssh_public_key = "ssh-rsa AAAA..."
+
+# Cloudflare Configuration
+cloudflare_api_token = "your-cloudflare-api-token"
+cloudflare_zone_id   = "your-zone-id-for-webscience-io"
+
+# Domain
+domain = "webscience.io"

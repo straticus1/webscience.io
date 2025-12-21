@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Security Scanner - WebScience.io{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-6 py-12">
+    <div class="text-center mb-12">
+        <div class="tool-icon red w-16 h-16 mx-auto mb-4">
+            <i class="fas fa-shield-halved text-white text-2xl"></i>
+        </div>
+        <h1 class="text-4xl font-bold mb-4">Security Scanner</h1>
+        <p class="text-gray-400 text-lg">SSL/TLS analysis, security headers, and vulnerability checks</p>
+    </div>
+
+    <form id="securityForm" class="mb-8">
+        <div class="flex gap-3">
+            <div class="flex-grow relative">
+                <i class="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                <input type="text" id="urlInput" placeholder="Enter URL to scan..."
+                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+            </div>
+            <button type="submit" class="btn-primary px-8 py-4 rounded-xl font-semibold flex items-center gap-2">
+                <i class="fas fa-search"></i>
+                Scan
+            </button>
+        </div>
+    </form>
+
+    <div id="results" class="hidden">
+        <div id="resultsContent"></div>
+    </div>
+
+    <div id="loading" class="hidden text-center py-12">
+        <div class="loading-spinner mx-auto mb-4"></div>
+        <p class="text-gray-400">Scanning security configuration...</p>
+    </div>
+
+    <!-- Security headers reference -->
+    <div class="mt-16">
+        <h2 class="text-2xl font-bold mb-6 text-center">Security Headers We Check</h2>
+        <div class="grid md:grid-cols-2 gap-4">
+            <div class="card p-4">
+                <h4 class="font-semibold text-red-400 mb-2">Strict-Transport-Security</h4>
+                <p class="text-gray-400 text-sm">Forces HTTPS connections and prevents downgrade attacks</p>
+            </div>
+            <div class="card p-4">
+                <h4 class="font-semibold text-red-400 mb-2">Content-Security-Policy</h4>
+                <p class="text-gray-400 text-sm">Prevents XSS and data injection attacks</p>
+            </div>
+            <div class="card p-4">
+                <h4 class="font-semibold text-red-400 mb-2">X-Frame-Options</h4>
+                <p class="text-gray-400 text-sm">Prevents clickjacking by controlling iframe embedding</p>
+            </div>
+            <div class="card p-4">
+                <h4 class="font-semibold text-red-400 mb-2">X-Content-Type-Options</h4>
+                <p class="text-gray-400 text-sm">Prevents MIME type sniffing attacks</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('securityForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('results').classList.add('hidden');
+
+    try {
+        const response = await fetch('/api/security/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        const data = await response.json();
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        renderResults(data);
+    } catch (err) {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('results').classList.remove('hidden');
+        document.getElementById('resultsContent').innerHTML = `
+            <div class="card p-6 text-red-400">
+                <i class="fas fa-exclamation-circle mr-2"></i>Error: ${err.message}
+            </div>`;
+    }
+});
+
+function renderResults(data) {
+    const container = document.getElementById('resultsContent');
+
+    if (data.error) {
+        container.innerHTML = `<div class="card p-6 text-red-400">
+            <i class="fas fa-exclamation-circle mr-2"></i>${data.error}
+        </div>`;
+        return;
+    }
+
+    const grade = data.overall_grade?.grade || 'N/A';
+    const gradeClass = `grade-${grade.replace('+', '')}`;
+
+    let html = `
+        <div class="card p-8 mb-6 text-center">
+            <div class="text-gray-400 mb-2">Overall Security Grade</div>
+            <div class="inline-block px-8 py-4 rounded-xl text-4xl font-bold ${gradeClass}">${grade}</div>
+            <div class="text-gray-500 mt-2">Score: ${data.overall_grade?.score || 0}/100</div>
+        </div>`;
+
+    // SSL Certificate
+    if (data.ssl) {
+        const sslOk = data.ssl.valid;
+        html += `<div class="card p-6 mb-6">
+            <div class="flex items-center gap-3 mb-4">
+                <i class="fas fa-lock ${sslOk ? 'text-green-400' : 'text-red-400'} text-xl"></i>
+                <h3 class="text-xl font-semibold">SSL/TLS Certificate</h3>
+                ${sslOk ? '<span class="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Valid</span>' :
+                         '<span class="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-sm">Invalid</span>'}
+            </div>`;
+
+        if (sslOk) {
+            const daysClass = data.ssl.days_left > 30 ? 'text-green-400' : data.ssl.days_left > 7 ? 'text-yellow-400' : 'text-red-400';
+            html += `<div class="grid md:grid-cols-3 gap-4">
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Subject</div>
+                    <div class="font-mono">${data.ssl.subject}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Issuer</div>
+                    <div>${data.ssl.issuer}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Expires In</div>
+                    <div class="${daysClass} font-bold">${data.ssl.days_left} days</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Protocol</div>
+                    <div class="font-mono">${data.ssl.protocol}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Cipher</div>
+                    <div class="font-mono text-sm">${data.ssl.cipher}</div>
+                </div>
+                <div class="p-4 bg-gray-800 rounded-lg">
+                    <div class="text-gray-400 text-sm">Key Size</div>
+                    <div>${data.ssl.key_size} bits</div>
+                </div>
+            </div>`;
+        } else {
+            html += `<div class="p-4 bg-red-500/10 rounded-lg text-red-400">
+                <i class="fas fa-exclamation-triangle mr-2"></i>${data.ssl.error}
+            </div>`;
+        }
+        html += `</div>`;
+    }
+
+    // Security Headers
+    if (data.headers?.headers) {
+        html += `<div class="card p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold"><i class="fas fa-shield-halved mr-2"></i>Security Headers</h3>
+                <span class="text-gray-400">Score: ${data.headers.percentage}%</span>
+            </div>
+            <div class="space-y-3">`;
+
+        Object.entries(data.headers.headers).forEach(([header, info]) => {
+            const present = info.present;
+            html += `<div class="p-4 bg-gray-800 rounded-lg">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <i class="fas ${present ? 'fa-check-circle text-green-400' : 'fa-times-circle text-red-400'}"></i>
+                        <span class="font-semibold">${header}</span>
+                    </div>
+                    ${present && info.grade ? `<span class="grade-badge grade-${info.grade}">${info.grade}</span>` : ''}
+                </div>
+                ${present ?
+                    `<div class="font-mono text-xs text-gray-400 break-all">${info.value}</div>` :
+                    `<div class="text-gray-500 text-sm">Header not set - consider adding for improved security</div>`
+                }
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    container.innerHTML = html;
+}
+</script>
+{% endblock %}
