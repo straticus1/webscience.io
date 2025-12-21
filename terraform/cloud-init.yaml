@@ -90,7 +90,7 @@ runcmd:
   - useradd -r -s /bin/false webscience
 
   # Clone repository
-  - git clone https://github.com/afterdarksys/webscience.io.git /opt/webscience
+  - git clone https://github.com/straticus1/webscience.io.git /opt/webscience
 
   # Setup Python environment
   - cd /opt/webscience && python3.9 -m venv venv
