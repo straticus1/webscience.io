@@ -1,5 +1,5 @@
 # WebScience.io Infrastructure
-# Oracle Cloud origin + Cloudflare CDN
+# Oracle Cloud
 
 terraform {
   required_version = ">= 1.0"
@@ -9,21 +9,12 @@ terraform {
       source  = "oracle/oci"
       version = ">= 5.0"
     }
-    cloudflare = {
-      source  = "cloudflare/cloudflare"
-      version = ">= 4.0"
-    }
   }
 }
 
 # Oracle Cloud Provider
 provider "oci" {
   region = var.oci_region
-}
-
-# Cloudflare Provider
-provider "cloudflare" {
-  api_token = var.cloudflare_api_token
 }
 
 # Data sources

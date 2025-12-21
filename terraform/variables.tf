@@ -33,18 +33,6 @@ variable "ssh_public_key" {
   type        = string
 }
 
-# Cloudflare Variables
-variable "cloudflare_api_token" {
-  description = "Cloudflare API Token"
-  type        = string
-  sensitive   = true
-}
-
-variable "cloudflare_zone_id" {
-  description = "Cloudflare Zone ID for webscience.io"
-  type        = string
-}
-
 variable "domain" {
   description = "Domain name"
   type        = string
