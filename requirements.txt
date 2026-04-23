@@ -6,3 +6,6 @@ beautifulsoup4==4.12.3
 lxml==5.2.0
 dnspython==2.6.1
 python-whois==0.9.6
+psycopg2-binary
+redis
+pyjwt
