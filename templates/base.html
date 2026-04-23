@@ -3,217 +3,432 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}WebScience.io - Web Analysis Swiss Army Knife{% endblock %}</title>
-    <meta name="description" content="{% block description %}Comprehensive web analysis: HTTP inspection, security scanning, performance testing, SEO analysis, and uptime monitoring.{% endblock %}">
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>{% block title %}WebScience.io — Web Intelligence Platform{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-card: #1a1a24;
-            --accent: #6366f1;
-            --accent-hover: #4f46e5;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
+            --bg:      #0a0e14;
+            --header:  #0d1117;
+            --surface: #161b22;
+            --border:  #21262d;
+            --border2: #30363d;
+            --text:    #c9d1d9;
+            --muted:   #8b949e;
+            --accent:  #58a6ff;
+            --green:   #56d364;
+            --yellow:  #e3b341;
+            --orange:  #f0883e;
+            --red:     #ff4444;
+            --purple:  #bc8cff;
+            --pink:    #f778ba;
         }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body, #app { height: 100%; overflow: hidden; }
         body {
-            background: var(--bg-primary);
-            color: #e2e8f0;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: 13px;
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+        /* ── Header ── */
+        .site-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 44px;
+            background: var(--header);
+            border-bottom: 1px solid var(--border2);
+            flex-shrink: 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            min-width: 0;
+        }
+        .site-logo {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--accent);
+            white-space: nowrap;
+            text-decoration: none;
+            letter-spacing: -0.3px;
+        }
+        .site-tagline {
+            font-size: 11px;
+            color: var(--muted);
+            white-space: nowrap;
+            display: none;
+        }
+        @media (min-width: 1024px) { .site-tagline { display: inline; } }
+
+        /* ── Tab bar ── */
+        .tab-bar {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border2);
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            padding: 4px 11px;
+            font-size: 11px;
+            font-family: inherit;
+            font-weight: 500;
+            background: transparent;
+            color: var(--muted);
+            border: none;
+            border-right: 1px solid var(--border2);
+            cursor: pointer;
+            transition: color 0.12s, background 0.12s;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        .tab-btn:last-child { border-right: none; }
+        .tab-btn:hover { color: var(--text); background: rgba(88,166,255,0.06); }
+        .tab-btn.active { color: var(--accent); background: rgba(88,166,255,0.12); }
+
+        /* ── Scan form ── */
+        .scan-form {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .scan-input {
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 4px;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 12px;
+            padding: 4px 10px;
+            width: 280px;
+            outline: none;
+            transition: border-color 0.12s;
+        }
+        .scan-input:focus { border-color: var(--accent); }
+        .scan-input::placeholder { color: var(--muted); }
+        .scan-btn {
+            background: var(--accent);
+            color: #0a0e14;
+            border: none;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 14px;
+            cursor: pointer;
+            transition: opacity 0.12s;
+            white-space: nowrap;
+        }
+        .scan-btn:hover { opacity: 0.85; }
+        .scan-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+        .scan-btn.scanning {
+            background: #1c2a1c;
+            color: var(--green);
+        }
+
+        /* ── Ecosystem link ── */
+        .ecosystem-link {
+            font-size: 11px;
+            color: var(--muted);
+            text-decoration: none;
+            white-space: nowrap;
+            padding: 3px 8px;
+            border: 1px solid var(--border2);
+            border-radius: 4px;
+            transition: color 0.12s, border-color 0.12s;
+        }
+        .ecosystem-link:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* ── Layout ── */
+        #app { display: flex; flex-direction: column; }
+        main { flex: 1; overflow: hidden; position: relative; }
+
+        /* ── Panels ── */
+        .panel {
+            position: absolute;
+            inset: 0;
+            overflow-y: auto;
+            padding: 20px;
+            display: none;
+        }
+        .panel.active { display: block; }
+
+        /* ── Cards / surfaces ── */
         .card {
-            background: var(--bg-card);
-            border-radius: 16px;
-            border: 1px solid rgba(99, 102, 241, 0.1);
-            transition: all 0.3s ease;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
         }
-        .card:hover {
-            border-color: rgba(99, 102, 241, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15);
+        .card + .card { margin-top: 12px; }
+
+        /* ── Section header ── */
+        .section-label {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 10px;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            transition: all 0.2s;
+
+        /* ── Grade badge ── */
+        .grade {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
         }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        .grade-Ap, .grade-A  { background: rgba(86,211,100,0.15); color: var(--green); border: 1px solid rgba(86,211,100,0.3); }
+        .grade-B             { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+        .grade-C             { background: rgba(227,179,65,0.15); color: var(--yellow); border: 1px solid rgba(227,179,65,0.3); }
+        .grade-D             { background: rgba(240,136,62,0.15); color: var(--orange); border: 1px solid rgba(240,136,62,0.3); }
+        .grade-F             { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid rgba(255,68,68,0.3); }
+
+        /* ── Status dots / pills ── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
         }
-        .btn-secondary { background: #374151; }
-        .btn-secondary:hover { background: #4b5563; }
-        .gradient-text {
-            background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .pill-green { background: rgba(86,211,100,0.12); color: var(--green); border: 1px solid rgba(86,211,100,0.25); }
+        .pill-red   { background: rgba(255,68,68,0.12); color: var(--red); border: 1px solid rgba(255,68,68,0.25); }
+        .pill-yellow{ background: rgba(227,179,65,0.12); color: var(--yellow); border: 1px solid rgba(227,179,65,0.25); }
+        .pill-blue  { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
+        .pill-muted { background: rgba(139,148,158,0.12); color: var(--muted); border: 1px solid rgba(139,148,158,0.25); }
+
+        /* ── KV rows ── */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            gap: 0;
         }
-        .hero-gradient {
-            background: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+        .kv-row {
+            display: contents;
         }
-        .tool-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
+        .kv-row > .kv-key,
+        .kv-row > .kv-val {
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+        .kv-key { color: var(--muted); padding-right: 16px; }
+        .kv-val { color: var(--text); word-break: break-all; }
+        .kv-row:last-child > * { border-bottom: none; }
+
+        /* ── Status bar (hop chain) ── */
+        .hop-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 10px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            font-size: 12px;
+        }
+        .hop-row + .hop-row { margin-top: 6px; }
+        .hop-num {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--border2);
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 10px;
+            flex-shrink: 0;
         }
-        .tool-icon.blue { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
-        .tool-icon.red { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
-        .tool-icon.green { background: linear-gradient(135deg, #10b981 0%, #047857 100%); }
-        .tool-icon.purple { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
-        .tool-icon.pink { background: linear-gradient(135deg, #ec4899 0%, #be185d 100%); }
-        .tool-icon.yellow { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%); }
+        .hop-status { font-weight: 700; min-width: 32px; }
+        .hop-url { flex: 1; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hop-time { color: var(--muted); font-size: 11px; flex-shrink: 0; }
 
-        .input-dark {
-            background: var(--bg-secondary);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 12px;
-            color: #e2e8f0;
-            transition: all 0.2s;
-        }
-        .input-dark:focus {
-            outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-        .input-dark::placeholder { color: #64748b; }
+        /* ── Header table ── */
+        .header-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+        .header-table tr { border-bottom: 1px solid var(--border); }
+        .header-table tr:last-child { border-bottom: none; }
+        .header-table td { padding: 5px 0; vertical-align: top; }
+        .header-table .hk { color: var(--accent); padding-right: 16px; white-space: nowrap; }
+        .header-table .hv { color: var(--text); word-break: break-all; }
 
-        .grade-badge {
-            padding: 4px 12px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
+        /* ── Timing bar ── */
+        .timing-bar-wrap {
+            background: var(--border);
+            border-radius: 3px;
+            height: 6px;
+            overflow: hidden;
+            margin-top: 4px;
         }
-        .grade-A { background: #10b981; color: white; }
-        .grade-B { background: #3b82f6; color: white; }
-        .grade-C { background: #f59e0b; color: black; }
-        .grade-D { background: #f97316; color: white; }
-        .grade-F { background: #ef4444; color: white; }
+        .timing-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.4s ease;
+        }
 
-        .loading-spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(99, 102, 241, 0.3);
-            border-top-color: #6366f1;
+        /* ── Check row ── */
+        .check-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+        .check-row:last-child { border-bottom: none; }
+        .check-name { display: flex; align-items: center; gap: 8px; font-weight: 500; flex-shrink: 0; }
+        .check-val { color: var(--muted); text-align: right; max-width: 55%; word-break: break-all; }
+
+        /* ── Chip / badge ── */
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 4px;
+            font-size: 11px;
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            margin: 3px;
+        }
+        .chip-accent { border-color: rgba(88,166,255,0.4); color: var(--accent); background: rgba(88,166,255,0.08); }
+        .chip-green  { border-color: rgba(86,211,100,0.4); color: var(--green); background: rgba(86,211,100,0.08); }
+        .chip-red    { border-color: rgba(255,68,68,0.4); color: var(--red); background: rgba(255,68,68,0.08); }
+        .chip-yellow { border-color: rgba(227,179,65,0.4); color: var(--yellow); background: rgba(227,179,65,0.08); }
+        .chip-purple { border-color: rgba(188,140,255,0.4); color: var(--purple); background: rgba(188,140,255,0.08); }
+        .chip-orange { border-color: rgba(240,136,62,0.4); color: var(--orange); background: rgba(240,136,62,0.08); }
+
+        /* ── Big number stat ── */
+        .stat-block { text-align: center; }
+        .stat-value { font-size: 28px; font-weight: 800; line-height: 1; }
+        .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+        /* ── Spinner ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(88,166,255,0.2);
+            border-top-color: var(--accent);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
         }
 
-        .result-section {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        /* ── Loading panel ── */
+        .loading-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            height: 200px;
+            color: var(--muted);
+            font-size: 12px;
         }
 
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
+        /* ── Error ── */
+        .error-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            background: rgba(255,68,68,0.08);
+            border: 1px solid rgba(255,68,68,0.25);
+            border-radius: 6px;
+            color: var(--red);
+            font-size: 12px;
         }
 
-        pre {
-            background: #0d0d12;
-            border-radius: 8px;
-            padding: 16px;
+        /* ── Recommendation item ── */
+        .rec-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+        .rec-error   { background: rgba(255,68,68,0.08); border-left: 3px solid var(--red); }
+        .rec-warning { background: rgba(227,179,65,0.08); border-left: 3px solid var(--yellow); }
+        .rec-info    { background: rgba(88,166,255,0.08); border-left: 3px solid var(--accent); }
+        .rec-icon    { flex-shrink: 0; margin-top: 1px; }
+
+        /* ── Code block ── */
+        pre.code-block {
+            background: #010409;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
             overflow-x: auto;
-            font-size: 13px;
-            line-height: 1.5;
+            font-size: 11px;
+            line-height: 1.6;
+            color: var(--text);
         }
-        code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 
-        .tab-active {
-            border-bottom: 2px solid #6366f1;
-            color: #6366f1;
+        /* ── Score ring (simple) ── */
+        .score-display {
+            text-align: center;
+            padding: 16px;
         }
+        .score-number {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .score-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+        {% block extra_css %}{% endblock %}
     </style>
-    {% block extra_css %}{% endblock %}
 </head>
-<body class="min-h-screen flex flex-col">
-    <nav class="bg-gray-900/80 backdrop-blur-lg border-b border-gray-800 px-6 py-4 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <a href="/" class="text-2xl font-bold flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                    <i class="fas fa-flask text-white text-lg"></i>
-                </div>
-                <span class="gradient-text">WebScience.io</span>
-            </a>
-            <div class="flex items-center gap-6">
-                <a href="/http" class="hover:text-indigo-400 transition">HTTP</a>
-                <a href="/security" class="hover:text-indigo-400 transition">Security</a>
-                <a href="/performance" class="hover:text-indigo-400 transition">Performance</a>
-                <a href="/seo" class="hover:text-indigo-400 transition">SEO</a>
-                <a href="/screenshot" class="hover:text-indigo-400 transition">Screenshot</a>
-                {% if session.get('user_id') %}
-                <a href="/monitor" class="hover:text-indigo-400 transition">Monitor</a>
-                <a href="/dashboard" class="hover:text-indigo-400 transition">Dashboard</a>
-                <a href="https://dnsscience.io/logout" class="text-gray-400 hover:text-white">Logout</a>
-                {% else %}
-                <a href="https://dnsscience.io/login?next=https://webscience.io/dashboard" class="btn-primary px-4 py-2 rounded-lg font-medium">Login</a>
-                {% endif %}
-            </div>
-        </div>
-    </nav>
+<body>
+<div id="app">
+    <header class="site-header">
+        <a href="/" class="site-logo">WebScience.io</a>
+        <span class="site-tagline">Web Intelligence Platform</span>
 
-    <main class="flex-grow">
+        <div class="tab-bar" id="mainTabBar">
+            <button class="tab-btn active" data-tab="http">HTTP</button>
+            <button class="tab-btn" data-tab="security">Security</button>
+            <button class="tab-btn" data-tab="performance">Performance</button>
+            <button class="tab-btn" data-tab="seo">SEO</button>
+            <button class="tab-btn" data-tab="tech">Tech Stack</button>
+            <button class="tab-btn" data-tab="cookies">Cookies</button>
+            <button class="tab-btn" data-tab="intel">Intel</button>
+        </div>
+
+        <a href="https://dnsscience.io" class="ecosystem-link" target="_blank">DNSScience.io ↗</a>
+
+        <form class="scan-form" id="globalScanForm">
+            <input type="text" class="scan-input" id="globalUrlInput"
+                   placeholder="https://example.com"
+                   value="{% block url_value %}{% endblock %}">
+            <button type="submit" class="scan-btn" id="globalScanBtn">Scan</button>
+        </form>
+    </header>
+
+    <main>
         {% block content %}{% endblock %}
     </main>
-
-    <footer class="border-t border-gray-800 mt-12 py-8">
-        <div class="max-w-7xl mx-auto px-6">
-            <div class="grid grid-cols-4 gap-8 mb-8">
-                <div>
-                    <h4 class="font-bold text-indigo-400 mb-4">Tools</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="/http" class="hover:text-white">HTTP Observatory</a></li>
-                        <li><a href="/security" class="hover:text-white">Security Scanner</a></li>
-                        <li><a href="/performance" class="hover:text-white">Performance Lab</a></li>
-                        <li><a href="/seo" class="hover:text-white">SEO Inspector</a></li>
-                        <li><a href="/screenshot" class="hover:text-white">Visual Capture</a></li>
-                        <li><a href="/monitor" class="hover:text-white">Uptime Monitor</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold text-indigo-400 mb-4">Resources</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="/docs" class="hover:text-white">Documentation</a></li>
-                        <li><a href="/api" class="hover:text-white">API Reference</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold text-indigo-400 mb-4">*Science.io Ecosystem</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="https://dnsscience.io" class="hover:text-white">DNSScience.io</a></li>
-                        <li><a href="https://hostscience.io" class="hover:text-white">HostScience.io</a></li>
-                        <li><a href="/" class="hover:text-white text-indigo-400">WebScience.io</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-bold text-indigo-400 mb-4">Ecosystem</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="https://ipscience.io" class="hover:text-white">IPScience.io</a></li>
-                        <li><a href="https://web3dns.io" class="hover:text-white">Web3DNS.io</a></li>
-                        <li><a href="https://flipdomain.io" class="hover:text-white">FlipDomain.io</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="text-center text-gray-500 pt-8 border-t border-gray-800">
-                Part of the <a href="https://afterdarksys.com" class="text-indigo-400 hover:underline">After Dark Systems</a> ecosystem
-            </div>
-        </div>
-    </footer>
-    {% block extra_js %}{% endblock %}
+</div>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

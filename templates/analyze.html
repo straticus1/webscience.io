@@ -1,462 +1,789 @@
 {% extends "base.html" %}
+{% block title %}{% if url %}{{ url }} — WebScience.io{% else %}WebScience.io — Web Intelligence Platform{% endif %}{% endblock %}
+{% block url_value %}{{ url }}{% endblock %}
 
-{% block title %}Analyze {{ url }} - WebScience.io{% endblock %}
+{% block extra_css %}
+/* ── Welcome panel ── */
+#welcomePanel {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 32px 24px;
+    overflow-y: auto;
+}
+.welcome-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    padding: 3px 12px;
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 20px;
+    margin-bottom: 16px;
+}
+.welcome-title {
+    font-size: clamp(24px, 3.5vw, 42px);
+    font-weight: 800;
+    color: #e6edf3;
+    margin-bottom: 12px;
+    line-height: 1.15;
+}
+.welcome-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 28px;
+    line-height: 1.7;
+}
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+}
+.feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+.feature-icon { font-size: 18px; line-height: 1; margin-top: 1px; flex-shrink: 0; }
+.feature-name { font-size: 11px; font-weight: 700; color: #e6edf3; margin-bottom: 3px; }
+.feature-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+.welcome-stats {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    flex-wrap: wrap;
+}
+.ws-stat-val { font-size: 20px; font-weight: 800; color: var(--accent); }
+.ws-stat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-6 py-12">
-    <!-- URL Input Bar -->
-    <div class="mb-8">
-        <form id="analyzeForm" class="flex gap-3">
-            <div class="flex-grow relative">
-                <i class="fas fa-globe absolute left-4 top-1/2 -translate-y-1/2 text-gray-500"></i>
-                <input type="text" id="urlInput" value="{{ url }}" placeholder="Enter URL to analyze..."
-                       class="input-dark w-full pl-12 pr-4 py-4 text-lg">
+<!-- ── Welcome overlay (hidden once scan runs) ── -->
+<div id="welcomePanel">
+    <div style="width:100%;max-width:820px;text-align:center;">
+        <div class="welcome-badge">Web Intelligence Platform</div>
+        <h1 class="welcome-title">
+            Welcome to <span style="color:var(--accent)">WebScience.io</span>
+        </h1>
+        <p class="welcome-sub">
+            Carrier-grade web analysis from engineers who've run production at scale.
+            HTTP inspection, security grading, performance profiling, SEO audits,
+            technology fingerprinting, cookie security, and domain intelligence — in one scan.
+        </p>
+        <div class="feature-grid">
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--accent)">◈</span>
+                <div>
+                    <div class="feature-name">HTTP Observatory</div>
+                    <div class="feature-desc">Full redirect chain, headers, timing, reverse DNS — every hop captured</div>
+                </div>
             </div>
-            <button type="submit" id="analyzeBtn" class="btn-primary px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-2">
-                <i class="fas fa-search"></i>
-                <span>Analyze All</span>
-            </button>
-        </form>
-    </div>
-
-    <!-- Tool Tabs -->
-    <div class="flex gap-4 mb-8 border-b border-gray-800 overflow-x-auto pb-1">
-        <button class="tab-btn px-4 py-3 whitespace-nowrap transition tab-active" data-tool="all">
-            <i class="fas fa-layer-group mr-2"></i>All Tools
-        </button>
-        {% for key, tool in tools.items() %}
-        <button class="tab-btn px-4 py-3 whitespace-nowrap transition hover:text-indigo-400" data-tool="{{ key }}">
-            <i class="fas {{ tool.icon }} mr-2"></i>{{ tool.name }}
-        </button>
-        {% endfor %}
-    </div>
-
-    <!-- Results Container -->
-    <div id="resultsContainer">
-        <!-- Initial state -->
-        <div id="initialState" class="text-center py-20">
-            <div class="w-20 h-20 rounded-2xl bg-gray-800 flex items-center justify-center mx-auto mb-6">
-                <i class="fas fa-flask text-4xl text-gray-600"></i>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--red)">◉</span>
+                <div>
+                    <div class="feature-name">Security Scanner</div>
+                    <div class="feature-desc">SSL/TLS grading, 10-point security header audit, cipher analysis</div>
+                </div>
             </div>
-            <h2 class="text-2xl font-semibold text-gray-400 mb-2">Ready to Analyze</h2>
-            <p class="text-gray-500">Enter a URL above and click Analyze to run all tools</p>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--green)">◫</span>
+                <div>
+                    <div class="feature-name">Performance Lab</div>
+                    <div class="feature-desc">DNS, TTFB, download timing, compression, resource counts scored</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--purple)">◷</span>
+                <div>
+                    <div class="feature-name">SEO Inspector</div>
+                    <div class="feature-desc">Meta tags, Open Graph, Twitter cards, JSON-LD, alt text, canonicals</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--yellow)">⬡</span>
+                <div>
+                    <div class="feature-name">Tech Stack Fingerprinting</div>
+                    <div class="feature-desc">Detect CDN, CMS, frameworks, analytics, JS libraries from headers + HTML</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--orange)">◈</span>
+                <div>
+                    <div class="feature-name">Cookie Inspector</div>
+                    <div class="feature-desc">Security flag audit — Secure, HttpOnly, SameSite graded per cookie</div>
+                </div>
+            </div>
+            <div class="feature-card">
+                <span class="feature-icon" style="color:var(--pink)">◉</span>
+                <div>
+                    <div class="feature-name">Domain Intel</div>
+                    <div class="feature-desc">WHOIS, A records, robots.txt, sitemap discovery, link breakdown</div>
+                </div>
+            </div>
         </div>
-
-        <!-- Loading state -->
-        <div id="loadingState" class="hidden">
-            <div class="grid md:grid-cols-2 gap-6">
-                {% for key, tool in tools.items() %}
-                <div class="card p-6" id="loading-{{ key }}">
-                    <div class="flex items-center gap-4">
-                        <div class="loading-spinner"></div>
-                        <div>
-                            <h3 class="font-semibold">{{ tool.name }}</h3>
-                            <p class="text-sm text-gray-400">Analyzing...</p>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+        <div class="welcome-stats">
+            <div><div class="ws-stat-val">7</div><div class="ws-stat-lbl">Analysis modules</div></div>
+            <div><div class="ws-stat-val">parallel</div><div class="ws-stat-lbl">Execution model</div></div>
+            <div><div class="ws-stat-val">REST</div><div class="ws-stat-lbl">API access</div></div>
+            <div><div class="ws-stat-val">*Science.io</div><div class="ws-stat-lbl">Ecosystem</div></div>
         </div>
-
-        <!-- Results -->
-        <div id="resultsState" class="hidden space-y-6">
-            <!-- HTTP Results -->
-            <div id="result-http" class="card p-6 hidden">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="tool-icon blue">
-                        <i class="fas fa-globe text-white"></i>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold">HTTP Observatory</h3>
-                        <p class="text-sm text-gray-400">Headers, redirects, response analysis</p>
-                    </div>
-                </div>
-                <div id="http-content"></div>
-            </div>
-
-            <!-- Security Results -->
-            <div id="result-security" class="card p-6 hidden">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="tool-icon red">
-                        <i class="fas fa-shield-halved text-white"></i>
-                    </div>
-                    <div class="flex-grow">
-                        <h3 class="text-xl font-semibold">Security Scanner</h3>
-                        <p class="text-sm text-gray-400">SSL/TLS and security headers</p>
-                    </div>
-                    <div id="security-grade"></div>
-                </div>
-                <div id="security-content"></div>
-            </div>
-
-            <!-- Performance Results -->
-            <div id="result-performance" class="card p-6 hidden">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="tool-icon green">
-                        <i class="fas fa-gauge-high text-white"></i>
-                    </div>
-                    <div class="flex-grow">
-                        <h3 class="text-xl font-semibold">Performance Lab</h3>
-                        <p class="text-sm text-gray-400">Speed and timing metrics</p>
-                    </div>
-                    <div id="performance-grade"></div>
-                </div>
-                <div id="performance-content"></div>
-            </div>
-
-            <!-- SEO Results -->
-            <div id="result-seo" class="card p-6 hidden">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="tool-icon purple">
-                        <i class="fas fa-magnifying-glass-chart text-white"></i>
-                    </div>
-                    <div class="flex-grow">
-                        <h3 class="text-xl font-semibold">SEO Inspector</h3>
-                        <p class="text-sm text-gray-400">Meta tags and structured data</p>
-                    </div>
-                    <div id="seo-grade"></div>
-                </div>
-                <div id="seo-content"></div>
-            </div>
+        <div style="margin-top:28px;font-size:11px;color:var(--muted)">
+            Enter a URL in the scan box above ↑ to get started
         </div>
     </div>
 </div>
+
+<!-- ── Tool panels ── -->
+<div id="panel-http"         class="panel active"></div>
+<div id="panel-security"     class="panel"></div>
+<div id="panel-performance"  class="panel"></div>
+<div id="panel-seo"          class="panel"></div>
+<div id="panel-tech"         class="panel"></div>
+<div id="panel-cookies"      class="panel"></div>
+<div id="panel-intel"        class="panel"></div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-const tools = ['http', 'security', 'performance', 'seo'];
-let currentResults = {};
+// ── State ──────────────────────────────────────────────────────────────────
+let currentUrl = '{{ url | escapejs if url else '' }}';
+let scanning = false;
+const results = {};
 
-document.getElementById('analyzeForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const url = document.getElementById('urlInput').value.trim();
-    if (!url) return;
-
-    // Update URL in browser
-    history.pushState({}, '', `/analyze?url=${encodeURIComponent(url)}`);
-
-    // Show loading state
-    document.getElementById('initialState').classList.add('hidden');
-    document.getElementById('resultsState').classList.add('hidden');
-    document.getElementById('loadingState').classList.remove('hidden');
-
-    // Run all analyses in parallel
-    const promises = tools.map(async (tool) => {
-        try {
-            const response = await fetch(`/api/${tool}/analyze`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-            });
-            const data = await response.json();
-            currentResults[tool] = data;
-            updateToolResult(tool, data);
-        } catch (err) {
-            currentResults[tool] = { error: err.message };
-            updateToolResult(tool, { error: err.message });
-        }
+// ── Tab switching ──────────────────────────────────────────────────────────
+function activateTab(tabId) {
+    document.querySelectorAll('#mainTabBar .tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tab === tabId);
     });
-
-    await Promise.all(promises);
-
-    // Show results
-    document.getElementById('loadingState').classList.add('hidden');
-    document.getElementById('resultsState').classList.remove('hidden');
-});
-
-function updateToolResult(tool, data) {
-    const resultDiv = document.getElementById(`result-${tool}`);
-    const contentDiv = document.getElementById(`${tool}-content`);
-    resultDiv.classList.remove('hidden');
-
-    if (data.error) {
-        contentDiv.innerHTML = `<div class="text-red-400"><i class="fas fa-exclamation-circle mr-2"></i>${data.error}</div>`;
-        return;
-    }
-
-    switch(tool) {
-        case 'http':
-            renderHttpResults(data, contentDiv);
-            break;
-        case 'security':
-            renderSecurityResults(data, contentDiv);
-            break;
-        case 'performance':
-            renderPerformanceResults(data, contentDiv);
-            break;
-        case 'seo':
-            renderSeoResults(data, contentDiv);
-            break;
-    }
+    document.querySelectorAll('.panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'panel-' + tabId);
+    });
 }
 
-function renderHttpResults(data, container) {
-    let html = '';
+window.switchPanel = activateTab;
+
+document.getElementById('mainTabBar').addEventListener('click', e => {
+    const btn = e.target.closest('.tab-btn');
+    if (btn && btn.dataset.tab) activateTab(btn.dataset.tab);
+});
+
+// ── URL params: pre-select tab ─────────────────────────────────────────────
+const urlParams = new URLSearchParams(location.search);
+const initTab = urlParams.get('tab');
+if (initTab) activateTab(initTab);
+
+// ── Scan form ──────────────────────────────────────────────────────────────
+document.getElementById('globalScanForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const url = document.getElementById('globalUrlInput').value.trim();
+    if (!url || scanning) return;
+    await runScan(url);
+});
+
+async function runScan(url) {
+    scanning = true;
+    currentUrl = url;
+
+    // Hide welcome, show panels with loading state
+    document.getElementById('welcomePanel').style.display = 'none';
+    const btn = document.getElementById('globalScanBtn');
+    btn.textContent = 'Scanning…';
+    btn.classList.add('scanning');
+    btn.disabled = true;
+
+    // Update browser URL
+    history.pushState({}, '', `/analyze?url=${encodeURIComponent(url)}`);
+
+    // Show loading in all panels
+    const panels = ['http','security','performance','seo','tech','cookies','intel'];
+    panels.forEach(p => setLoading(p, p.charAt(0).toUpperCase() + p.slice(1)));
+
+    // Dispatch all analyses in parallel
+    const jobs = [
+        fetch('/api/http/analyze',        { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.http=d; renderHttp(d); }).catch(e=>renderError('http',e)),
+        fetch('/api/security/analyze',    { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.security=d; renderSecurity(d); }).catch(e=>renderError('security',e)),
+        fetch('/api/performance/analyze', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.performance=d; renderPerformance(d); }).catch(e=>renderError('performance',e)),
+        fetch('/api/seo/analyze',         { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.seo=d; renderSeo(d); }).catch(e=>renderError('seo',e)),
+        fetch('/api/tech/analyze',        { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.tech=d; renderTech(d); }).catch(e=>renderError('tech',e)),
+        fetch('/api/cookies/analyze',     { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.cookies=d; renderCookies(d); }).catch(e=>renderError('cookies',e)),
+        fetch('/api/intel/analyze',       { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url}) }).then(r=>r.json()).then(d=>{ results.intel=d; renderIntel(d); }).catch(e=>renderError('intel',e)),
+    ];
+
+    await Promise.allSettled(jobs);
+
+    scanning = false;
+    btn.textContent = 'Scan';
+    btn.classList.remove('scanning');
+    btn.disabled = false;
+}
+
+function setLoading(panelId, label) {
+    document.getElementById('panel-' + panelId).innerHTML = `
+        <div class="loading-state">
+            <div class="spinner"></div>
+            <div>Analyzing ${label}…</div>
+        </div>`;
+}
+
+function renderError(panelId, err) {
+    document.getElementById('panel-' + panelId).innerHTML = `
+        <div class="error-box"><i class="fas fa-exclamation-circle"></i>${err.message || 'Analysis failed'}</div>`;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function gradeClass(g) {
+    if (!g) return 'grade-F';
+    if (g.includes('+')) return 'grade-Ap';
+    return 'grade-' + g.charAt(0);
+}
+function statusColor(code) {
+    if (code < 300) return 'var(--green)';
+    if (code < 400) return 'var(--yellow)';
+    if (code < 500) return 'var(--orange)';
+    return 'var(--red)';
+}
+function msColor(ms, good, warn) {
+    if (ms <= good) return 'var(--green)';
+    if (ms <= warn) return 'var(--yellow)';
+    return 'var(--red)';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ── HTTP ──────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderHttp(data) {
+    const el = document.getElementById('panel-http');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
+
+    let html = `<div style="max-width:900px">`;
 
     // Redirect chain
-    if (data.redirects && data.redirects.length > 0) {
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-route mr-2"></i>Request Chain (${data.redirects.length} hop${data.redirects.length > 1 ? 's' : ''})</h4>
-            <div class="space-y-2">`;
-
+    if (data.redirects?.length) {
+        html += `<div class="card"><div class="section-label">Request Chain — ${data.redirects.length} hop${data.redirects.length>1?'s':''}</div>`;
         data.redirects.forEach((r, i) => {
             const isLast = i === data.redirects.length - 1;
-            const statusColor = r.status_code < 300 ? 'text-green-400' : r.status_code < 400 ? 'text-yellow-400' : 'text-red-400';
-            html += `
-                <div class="flex items-center gap-3 text-sm">
-                    <span class="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-xs">${i + 1}</span>
-                    <span class="${statusColor} font-mono">${r.status_code}</span>
-                    <span class="text-gray-400 truncate flex-grow">${r.url}</span>
-                    <span class="text-gray-500">${r.time_ms}ms</span>
-                </div>`;
+            html += `<div class="hop-row">
+                <span class="hop-num">${i+1}</span>
+                <span class="hop-status" style="color:${statusColor(r.status_code)}">${r.status_code}</span>
+                <span class="hop-url" title="${esc(r.url)}">${esc(r.url)}</span>
+                <span class="hop-time">${r.time_ms}ms</span>
+                ${isLast ? `<span class="pill pill-green" style="flex-shrink:0"><i class="fas fa-flag"></i>Final</span>` : ''}
+            </div>`;
         });
-        html += `</div></div>`;
+        html += `</div>`;
     }
 
-    // Response info
+    // Response summary
     if (data.response) {
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-server mr-2"></i>Response</h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><span class="text-gray-400">Status:</span> <span class="text-green-400">${data.response.status_code} ${data.response.status_text}</span></div>
-                <div><span class="text-gray-400">Server:</span> ${data.response.server || 'Unknown'}</div>
-                <div><span class="text-gray-400">Content-Type:</span> ${data.response.content_type || 'Unknown'}</div>
-                <div><span class="text-gray-400">Total Time:</span> ${data.timing?.total_ms}ms</div>
+        html += `<div class="card"><div class="section-label">Response Summary</div>
+            <div class="kv-grid">
+                <div class="kv-row"><span class="kv-key">Final URL</span><span class="kv-val" style="word-break:break-all">${esc(data.final_url)}</span></div>
+                <div class="kv-row"><span class="kv-key">Status</span><span class="kv-val" style="color:${statusColor(data.response.status_code)};font-weight:700">${data.response.status_code} ${esc(data.response.status_text)}</span></div>
+                <div class="kv-row"><span class="kv-key">Server</span><span class="kv-val">${esc(data.response.server || 'Not disclosed')}</span></div>
+                <div class="kv-row"><span class="kv-key">Content-Type</span><span class="kv-val">${esc(data.response.content_type || 'Unknown')}</span></div>
+                <div class="kv-row"><span class="kv-key">Total Time</span><span class="kv-val" style="color:${msColor(data.timing?.total_ms,500,1500)}">${data.timing?.total_ms}ms</span></div>
+                <div class="kv-row"><span class="kv-key">Redirects</span><span class="kv-val">${(data.redirects?.length||1)-1}</span></div>
             </div>
         </div>`;
+    }
+
+    // IP resolution
+    if (data.host_info) {
+        html += `<div class="card"><div class="section-label">Host Resolution</div>
+            <div class="kv-grid">
+                <div class="kv-row"><span class="kv-key">IP Addresses</span><span class="kv-val">${(data.host_info.ips||[]).map(ip=>`<span class="chip chip-accent">${esc(ip)}</span>`).join('')}</span></div>`;
+        if (data.host_info.reverse_dns?.length) {
+            data.host_info.reverse_dns.forEach(r => {
+                html += `<div class="kv-row"><span class="kv-key">${esc(r.ip)}</span><span class="kv-val" style="color:var(--muted)">${esc(r.hostname || 'No PTR')}</span></div>`;
+            });
+        }
+        html += `</div></div>`;
     }
 
     // Headers
     if (data.headers) {
-        html += `<div class="result-section p-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-list mr-2"></i>Response Headers</h4>
-            <pre class="text-xs"><code>`;
-        Object.entries(data.headers).forEach(([key, value]) => {
-            html += `<span class="text-indigo-400">${key}:</span> ${value}\n`;
+        html += `<div class="card"><div class="section-label">Response Headers</div>
+            <table class="header-table">`;
+        Object.entries(data.headers).forEach(([k,v]) => {
+            html += `<tr><td class="hk">${esc(k)}</td><td class="hv">${esc(v)}</td></tr>`;
         });
-        html += `</code></pre></div>`;
+        html += `</table></div>`;
     }
 
-    container.innerHTML = html;
+    html += `</div>`;
+    el.innerHTML = html;
 }
 
-function renderSecurityResults(data, container) {
-    const gradeDiv = document.getElementById('security-grade');
-    const grade = data.overall_grade?.grade || 'N/A';
-    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade.replace('+', '')}">${grade}</span>`;
+// ─────────────────────────────────────────────────────────────────────────
+// ── Security ──────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderSecurity(data) {
+    const el = document.getElementById('panel-security');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
 
-    let html = '';
+    const grade = data.overall_grade?.grade || 'F';
+    const score = data.overall_grade?.score || 0;
 
-    // SSL Info
-    if (data.ssl) {
-        const sslOk = data.ssl.valid;
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3">
-                <i class="fas fa-lock mr-2 ${sslOk ? 'text-green-400' : 'text-red-400'}"></i>
-                SSL/TLS Certificate
-            </h4>`;
+    let html = `<div style="max-width:900px">`;
 
-        if (sslOk) {
-            html += `<div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div><span class="text-gray-400">Subject:</span> ${data.ssl.subject}</div>
-                <div><span class="text-gray-400">Issuer:</span> ${data.ssl.issuer}</div>
-                <div><span class="text-gray-400">Protocol:</span> ${data.ssl.protocol}</div>
-                <div><span class="text-gray-400">Cipher:</span> ${data.ssl.cipher}</div>
-                <div><span class="text-gray-400">Key Size:</span> ${data.ssl.key_size} bits</div>
-                <div><span class="text-gray-400">Expires:</span>
-                    <span class="${data.ssl.days_left > 30 ? 'text-green-400' : 'text-yellow-400'}">${data.ssl.days_left} days</span>
+    // Grade hero
+    html += `<div class="card" style="display:flex;align-items:center;gap:32px;padding:20px 24px">
+        <div class="score-display" style="padding:0">
+            <div class="score-number ${gradeClass(grade)}" style="font-size:52px">${grade}</div>
+            <div class="score-label">${score}/100 overall</div>
+        </div>
+        <div style="flex:1">`;
+
+    const ssl = data.ssl;
+    if (ssl?.valid) {
+        html += `<div style="margin-bottom:8px"><span class="pill pill-green"><i class="fas fa-lock"></i>SSL valid · ${ssl.days_left} days left</span></div>`;
+    } else if (ssl) {
+        html += `<div style="margin-bottom:8px"><span class="pill pill-red"><i class="fas fa-lock-open"></i>${esc(ssl.error_type||'SSL issue')}</span></div>`;
+    }
+    if (data.headers?.grade) {
+        html += `<div><span style="color:var(--muted);font-size:11px">Security headers: </span><span class="grade ${gradeClass(data.headers.grade)}">${data.headers.grade}</span> <span style="color:var(--muted);font-size:11px">(${data.headers.percentage}%)</span></div>`;
+    }
+    html += `</div></div>`;
+
+    // SSL details
+    if (ssl?.valid) {
+        html += `<div class="card"><div class="section-label">SSL / TLS Certificate</div>
+            <div class="kv-grid">
+                <div class="kv-row"><span class="kv-key">Subject</span><span class="kv-val">${esc(ssl.subject)}</span></div>
+                <div class="kv-row"><span class="kv-key">Issuer</span><span class="kv-val">${esc(ssl.issuer)}</span></div>
+                <div class="kv-row"><span class="kv-key">Protocol</span><span class="kv-val"><span class="chip chip-green">${esc(ssl.protocol)}</span></span></div>
+                <div class="kv-row"><span class="kv-key">Cipher</span><span class="kv-val">${esc(ssl.cipher)}</span></div>
+                <div class="kv-row"><span class="kv-key">Key Size</span><span class="kv-val">${ssl.key_size} bits</span></div>
+                <div class="kv-row"><span class="kv-key">Valid Until</span><span class="kv-val" style="color:${ssl.days_left>30?'var(--green)':ssl.days_left>7?'var(--yellow)':'var(--red)'}">${ssl.days_left} days (${esc(ssl.not_after?.split('T')[0]||'')})</span></div>
+                ${ssl.sans?.length ? `<div class="kv-row"><span class="kv-key">SANs (${ssl.sans.length})</span><span class="kv-val">${ssl.sans.slice(0,8).map(s=>`<span class="chip">${esc(s)}</span>`).join('')}${ssl.sans.length>8?`<span class="chip chip-muted">+${ssl.sans.length-8} more</span>`:''}</span></div>` : ''}
+            </div>
+        </div>`;
+    } else if (ssl && !ssl.valid) {
+        html += `<div class="card"><div class="error-box"><i class="fas fa-lock-open"></i>${esc(ssl.error || 'SSL unavailable')}</div></div>`;
+    }
+
+    // Security headers
+    if (data.headers?.headers) {
+        html += `<div class="card"><div class="section-label">Security Headers</div>`;
+        Object.entries(data.headers.headers).forEach(([header, info]) => {
+            const ok = info.present;
+            html += `<div class="check-row">
+                <div class="check-name">
+                    <i class="fas ${ok?'fa-check-circle':'fa-times-circle'}" style="color:${ok?'var(--green)':'var(--red)'}"></i>
+                    <span>${esc(header)}</span>
+                    ${info.grade ? `<span class="grade ${gradeClass(info.grade)}">${info.grade}</span>` : ''}
                 </div>
+                <div class="check-val">${ok ? esc(info.value) : '<span style="color:var(--muted);font-style:italic">missing</span>'}</div>
             </div>`;
-        } else {
-            html += `<div class="text-red-400"><i class="fas fa-exclamation-triangle mr-2"></i>${data.ssl.error}</div>`;
-        }
+        });
         html += `</div>`;
     }
 
-    // Security Headers
-    if (data.headers?.headers) {
-        html += `<div class="result-section p-4">
-            <h4 class="font-semibold mb-3">
-                <i class="fas fa-shield-halved mr-2"></i>
-                Security Headers
-                <span class="text-sm font-normal text-gray-400">(${data.headers.percentage}% - Grade ${data.headers.grade})</span>
-            </h4>
-            <div class="space-y-2">`;
-
-        Object.entries(data.headers.headers).forEach(([header, info]) => {
-            const present = info.present;
-            html += `<div class="flex items-center justify-between text-sm py-2 border-b border-gray-800">
-                <div class="flex items-center gap-2">
-                    <i class="fas ${present ? 'fa-check-circle text-green-400' : 'fa-times-circle text-red-400'}"></i>
-                    <span>${header}</span>
-                </div>
-                ${present ? `<span class="text-gray-500 text-xs truncate max-w-md">${info.value}</span>` : '<span class="text-gray-600">Missing</span>'}
-            </div>`;
-        });
-        html += `</div></div>`;
-    }
-
-    container.innerHTML = html;
+    html += `</div>`;
+    el.innerHTML = html;
 }
 
-function renderPerformanceResults(data, container) {
-    const gradeDiv = document.getElementById('performance-grade');
-    const grade = data.score?.grade || 'N/A';
-    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade}">${grade}</span>`;
+// ─────────────────────────────────────────────────────────────────────────
+// ── Performance ───────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderPerformance(data) {
+    const el = document.getElementById('panel-performance');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
 
-    let html = '';
+    const grade = data.score?.grade || 'F';
+    const score = data.score?.value || 0;
+    const t = data.timing || {};
+    const total = t.total_ms || 1;
 
-    // Timing metrics
-    if (data.timing) {
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-stopwatch mr-2"></i>Timing Metrics</h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="text-center p-3 bg-gray-800 rounded-lg">
-                    <div class="text-2xl font-bold text-blue-400">${data.timing.dns_ms}ms</div>
-                    <div class="text-xs text-gray-400">DNS Lookup</div>
-                </div>
-                <div class="text-center p-3 bg-gray-800 rounded-lg">
-                    <div class="text-2xl font-bold ${data.timing.ttfb_ms < 600 ? 'text-green-400' : 'text-yellow-400'}">${data.timing.ttfb_ms}ms</div>
-                    <div class="text-xs text-gray-400">Time to First Byte</div>
-                </div>
-                <div class="text-center p-3 bg-gray-800 rounded-lg">
-                    <div class="text-2xl font-bold text-purple-400">${data.timing.download_ms}ms</div>
-                    <div class="text-xs text-gray-400">Download Time</div>
-                </div>
-                <div class="text-center p-3 bg-gray-800 rounded-lg">
-                    <div class="text-2xl font-bold text-indigo-400">${data.timing.total_ms}ms</div>
-                    <div class="text-xs text-gray-400">Total Time</div>
-                </div>
+    let html = `<div style="max-width:900px">`;
+
+    // Grade + stats row
+    html += `<div class="card" style="display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr;gap:20px;align-items:center;padding:20px 24px">
+        <div class="score-display" style="padding:0">
+            <div class="score-number ${gradeClass(grade)}">${grade}</div>
+            <div class="score-label">${score}/100</div>
+        </div>
+        <div class="stat-block">
+            <div class="stat-value" style="color:var(--accent)">${t.dns_ms||0}</div>
+            <div class="stat-label">DNS ms</div>
+        </div>
+        <div class="stat-block">
+            <div class="stat-value" style="color:${msColor(t.ttfb_ms,300,600)}">${t.ttfb_ms||0}</div>
+            <div class="stat-label">TTFB ms</div>
+        </div>
+        <div class="stat-block">
+            <div class="stat-value" style="color:var(--purple)">${t.download_ms||0}</div>
+            <div class="stat-label">Download ms</div>
+        </div>
+        <div class="stat-block">
+            <div class="stat-value" style="color:${msColor(t.total_ms,500,1500)}">${t.total_ms||0}</div>
+            <div class="stat-label">Total ms</div>
+        </div>
+    </div>`;
+
+    // Timing bar
+    if (t.total_ms) {
+        const dnsPct  = Math.max(1, (t.dns_ms/total)*100).toFixed(1);
+        const waitPct = Math.max(1, ((t.ttfb_ms-t.dns_ms)/total)*100).toFixed(1);
+        const dlPct   = Math.max(1, (t.download_ms/total)*100).toFixed(1);
+        html += `<div class="card"><div class="section-label">Timing Breakdown</div>
+            <div style="display:grid;grid-template-columns:80px 1fr 50px;gap:8px;align-items:center;margin-bottom:8px;font-size:11px">
+                <span style="color:var(--muted)">DNS</span>
+                <div class="timing-bar-wrap"><div class="timing-bar-fill" style="width:${dnsPct}%;background:var(--accent)"></div></div>
+                <span style="color:var(--accent);text-align:right">${t.dns_ms}ms</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 50px;gap:8px;align-items:center;margin-bottom:8px;font-size:11px">
+                <span style="color:var(--muted)">Wait (TTFB)</span>
+                <div class="timing-bar-wrap"><div class="timing-bar-fill" style="width:${waitPct}%;background:${msColor(t.ttfb_ms,300,600)}"></div></div>
+                <span style="color:${msColor(t.ttfb_ms,300,600)};text-align:right">${t.ttfb_ms}ms</span>
+            </div>
+            <div style="display:grid;grid-template-columns:80px 1fr 50px;gap:8px;align-items:center;font-size:11px">
+                <span style="color:var(--muted)">Download</span>
+                <div class="timing-bar-wrap"><div class="timing-bar-fill" style="width:${dlPct}%;background:var(--purple)"></div></div>
+                <span style="color:var(--purple);text-align:right">${t.download_ms}ms</span>
             </div>
         </div>`;
     }
 
-    // Size & Resources
+    // Size + resources
     if (data.size) {
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-weight-hanging mr-2"></i>Page Size & Resources</h4>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><span class="text-gray-400">Size:</span> ${data.size.total_kb} KB</div>
-                <div><span class="text-gray-400">Compressed:</span>
-                    ${data.size.compressed ? '<span class="text-green-400">Yes</span>' : '<span class="text-red-400">No</span>'}
+        html += `<div class="card"><div class="section-label">Page Weight & Resources</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+                <div>
+                    <div style="font-size:32px;font-weight:800;color:var(--text)">${data.size.total_kb} <span style="font-size:14px;color:var(--muted)">KB</span></div>
+                    <div style="margin-top:6px">${data.size.compressed
+                        ? '<span class="pill pill-green"><i class="fas fa-compress"></i>Compressed</span>'
+                        : '<span class="pill pill-red"><i class="fas fa-expand"></i>Not compressed</span>'}</div>
                 </div>
-                <div><span class="text-gray-400">Scripts:</span> ${data.resources?.scripts || 0}</div>
-                <div><span class="text-gray-400">Stylesheets:</span> ${data.resources?.stylesheets || 0}</div>
+                <div style="display:flex;gap:16px;margin-left:auto">
+                    <div class="stat-block"><div class="stat-value" style="color:var(--yellow)">${data.resources?.scripts||0}</div><div class="stat-label">Scripts</div></div>
+                    <div class="stat-block"><div class="stat-value" style="color:var(--pink)">${data.resources?.stylesheets||0}</div><div class="stat-label">Styles</div></div>
+                    <div class="stat-block"><div class="stat-value" style="color:var(--green)">${data.resources?.images||0}</div><div class="stat-label">Images</div></div>
+                </div>
             </div>
         </div>`;
     }
 
     // Recommendations
-    if (data.recommendations?.length > 0) {
-        html += `<div class="result-section p-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-lightbulb mr-2"></i>Recommendations</h4>
-            <div class="space-y-2">`;
-        data.recommendations.forEach(rec => {
-            const icon = rec.type === 'error' ? 'fa-times-circle text-red-400' :
-                        rec.type === 'warning' ? 'fa-exclamation-triangle text-yellow-400' : 'fa-info-circle text-blue-400';
-            html += `<div class="flex items-start gap-2 text-sm">
-                <i class="fas ${icon} mt-1"></i>
-                <div><span class="font-medium">${rec.category}:</span> ${rec.message}</div>
+    if (data.recommendations?.length) {
+        html += `<div class="card"><div class="section-label">Recommendations</div>`;
+        data.recommendations.forEach(r => {
+            html += `<div class="rec-item rec-${r.type}">
+                <i class="fas ${r.type==='error'?'fa-times-circle':r.type==='warning'?'fa-exclamation-triangle':'fa-info-circle'} rec-icon" style="color:${r.type==='error'?'var(--red)':r.type==='warning'?'var(--yellow)':'var(--accent)'}"></i>
+                <div><span style="font-weight:700">${esc(r.category)}: </span>${esc(r.message)}</div>
             </div>`;
         });
-        html += `</div></div>`;
+        html += `</div>`;
     }
 
-    container.innerHTML = html;
+    html += `</div>`;
+    el.innerHTML = html;
 }
 
-function renderSeoResults(data, container) {
-    const gradeDiv = document.getElementById('seo-grade');
-    const grade = data.score?.grade || 'N/A';
-    gradeDiv.innerHTML = `<span class="grade-badge grade-${grade}">${grade} (${data.score?.percentage}%)</span>`;
+// ─────────────────────────────────────────────────────────────────────────
+// ── SEO ───────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderSeo(data) {
+    const el = document.getElementById('panel-seo');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
 
-    let html = '';
+    const grade = data.score?.grade || 'F';
+    const score = data.score?.percentage || 0;
+    const meta = data.meta || {};
 
-    // Meta Tags
-    if (data.meta) {
-        html += `<div class="result-section p-4 mb-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-tags mr-2"></i>Meta Tags</h4>
-            <div class="space-y-3 text-sm">
-                <div><span class="text-gray-400">Title:</span> ${data.meta.title || '<span class="text-red-400">Missing</span>'}</div>
-                <div><span class="text-gray-400">Description:</span> ${data.meta.description || '<span class="text-red-400">Missing</span>'}</div>
-                <div><span class="text-gray-400">Canonical:</span> ${data.meta.canonical || '<span class="text-yellow-400">Not set</span>'}</div>
-                <div><span class="text-gray-400">Viewport:</span> ${data.meta.viewport ? '<span class="text-green-400">Set</span>' : '<span class="text-red-400">Missing</span>'}</div>
+    let html = `<div style="max-width:900px">`;
+
+    // Grade hero
+    html += `<div class="card" style="display:flex;align-items:center;gap:32px;padding:20px 24px">
+        <div class="score-display" style="padding:0">
+            <div class="score-number ${gradeClass(grade)}">${grade}</div>
+            <div class="score-label">${score}/100</div>
+        </div>
+        <div style="flex:1;display:flex;flex-wrap:wrap;gap:8px">
+            ${meta.title ? `<span class="pill pill-green"><i class="fas fa-check"></i>Title</span>` : `<span class="pill pill-red"><i class="fas fa-times"></i>No title</span>`}
+            ${meta.description ? `<span class="pill pill-green"><i class="fas fa-check"></i>Description</span>` : `<span class="pill pill-red"><i class="fas fa-times"></i>No description</span>`}
+            ${meta.canonical ? `<span class="pill pill-green"><i class="fas fa-check"></i>Canonical</span>` : `<span class="pill pill-yellow"><i class="fas fa-minus"></i>No canonical</span>`}
+            ${meta.viewport ? `<span class="pill pill-green"><i class="fas fa-check"></i>Viewport</span>` : `<span class="pill pill-red"><i class="fas fa-times"></i>No viewport</span>`}
+            ${meta.structured_data?.length ? `<span class="pill pill-green"><i class="fas fa-check"></i>JSON-LD</span>` : `<span class="pill pill-yellow"><i class="fas fa-minus"></i>No JSON-LD</span>`}
+            ${Object.keys(meta.og||{}).length ? `<span class="pill pill-green"><i class="fas fa-check"></i>Open Graph</span>` : `<span class="pill pill-yellow"><i class="fas fa-minus"></i>No OG tags</span>`}
+        </div>
+    </div>`;
+
+    // Meta tags
+    html += `<div class="card"><div class="section-label">Meta Tags</div>
+        <div class="kv-grid">
+            <div class="kv-row"><span class="kv-key">Title</span><span class="kv-val">${meta.title ? `${esc(meta.title)} <span style="color:var(--muted)">(${meta.title.length} chars)</span>` : '<span style="color:var(--red)">Missing</span>'}</span></div>
+            <div class="kv-row"><span class="kv-key">Description</span><span class="kv-val">${meta.description ? `${esc(meta.description.slice(0,120))}${meta.description.length>120?'…':''} <span style="color:var(--muted)">(${meta.description.length} chars)</span>` : '<span style="color:var(--red)">Missing</span>'}</span></div>
+            <div class="kv-row"><span class="kv-key">Canonical</span><span class="kv-val">${meta.canonical ? esc(meta.canonical) : '<span style="color:var(--muted)">Not set</span>'}</span></div>
+            <div class="kv-row"><span class="kv-key">Viewport</span><span class="kv-val">${meta.viewport ? esc(meta.viewport) : '<span style="color:var(--red)">Missing</span>'}</span></div>
+            <div class="kv-row"><span class="kv-key">Robots</span><span class="kv-val">${meta.robots ? esc(meta.robots) : '<span style="color:var(--muted)">Not set (default: index)</span>'}</span></div>
+            <div class="kv-row"><span class="kv-key">Keywords</span><span class="kv-val">${meta.keywords ? esc(meta.keywords.slice(0,100)) : '<span style="color:var(--muted)">Not set</span>'}</span></div>
+        </div>
+    </div>`;
+
+    // Content stats
+    if (data.content) {
+        html += `<div class="card"><div class="section-label">Content Analysis</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+                <div class="stat-block"><div class="stat-value" style="color:${data.content.h1_count===1?'var(--green)':data.content.h1_count===0?'var(--red)':'var(--yellow)'}">${data.content.h1_count}</div><div class="stat-label">H1 tags</div></div>
+                <div class="stat-block"><div class="stat-value" style="color:var(--text)">${data.content.total_images}</div><div class="stat-label">Images</div></div>
+                <div class="stat-block"><div class="stat-value" style="color:${data.content.images_without_alt>0?'var(--yellow)':'var(--green)'}">${data.content.images_without_alt}</div><div class="stat-label">Missing alt</div></div>
             </div>
         </div>`;
-
-        // Open Graph
-        if (Object.keys(data.meta.og || {}).length > 0) {
-            html += `<div class="result-section p-4 mb-4">
-                <h4 class="font-semibold mb-3"><i class="fab fa-facebook mr-2"></i>Open Graph</h4>
-                <div class="grid grid-cols-2 gap-2 text-sm">`;
-            Object.entries(data.meta.og).forEach(([key, value]) => {
-                html += `<div><span class="text-gray-400">og:${key}:</span> ${value || 'Not set'}</div>`;
-            });
-            html += `</div></div>`;
-        }
-
-        // Structured Data
-        if (data.meta.structured_data?.length > 0) {
-            html += `<div class="result-section p-4 mb-4">
-                <h4 class="font-semibold mb-3"><i class="fas fa-code mr-2"></i>Structured Data (JSON-LD)</h4>
-                <pre class="text-xs"><code>${JSON.stringify(data.meta.structured_data, null, 2)}</code></pre>
-            </div>`;
-        }
     }
 
-    // Issues & Warnings
-    if (data.score?.issues?.length > 0 || data.score?.warnings?.length > 0) {
-        html += `<div class="result-section p-4">
-            <h4 class="font-semibold mb-3"><i class="fas fa-clipboard-check mr-2"></i>Issues & Recommendations</h4>
-            <div class="space-y-2">`;
-
-        (data.score.issues || []).forEach(issue => {
-            html += `<div class="flex items-center gap-2 text-sm text-red-400">
-                <i class="fas fa-times-circle"></i>${issue}
-            </div>`;
-        });
-        (data.score.warnings || []).forEach(warning => {
-            html += `<div class="flex items-center gap-2 text-sm text-yellow-400">
-                <i class="fas fa-exclamation-triangle"></i>${warning}
-            </div>`;
+    // Open Graph
+    if (Object.keys(meta.og||{}).length) {
+        html += `<div class="card"><div class="section-label">Open Graph</div><div class="kv-grid">`;
+        Object.entries(meta.og).forEach(([k,v]) => {
+            html += `<div class="kv-row"><span class="kv-key">og:${esc(k)}</span><span class="kv-val">${esc(v)}</span></div>`;
         });
         html += `</div></div>`;
     }
 
-    container.innerHTML = html;
+    // Twitter Card
+    if (Object.keys(meta.twitter||{}).length) {
+        html += `<div class="card"><div class="section-label">Twitter Card</div><div class="kv-grid">`;
+        Object.entries(meta.twitter).forEach(([k,v]) => {
+            html += `<div class="kv-row"><span class="kv-key">twitter:${esc(k)}</span><span class="kv-val">${esc(v)}</span></div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Structured data
+    if (meta.structured_data?.length) {
+        html += `<div class="card"><div class="section-label">JSON-LD Structured Data (${meta.structured_data.length} block${meta.structured_data.length>1?'s':''})</div>
+            <pre class="code-block">${esc(JSON.stringify(meta.structured_data, null, 2))}</pre>
+        </div>`;
+    }
+
+    // Issues
+    const issues = data.score?.issues || [];
+    const warnings = data.score?.warnings || [];
+    if (issues.length || warnings.length) {
+        html += `<div class="card"><div class="section-label">Issues & Recommendations</div>`;
+        issues.forEach(i => html += `<div class="rec-item rec-error"><i class="fas fa-times-circle rec-icon" style="color:var(--red)"></i>${esc(i)}</div>`);
+        warnings.forEach(w => html += `<div class="rec-item rec-warning"><i class="fas fa-exclamation-triangle rec-icon" style="color:var(--yellow)"></i>${esc(w)}</div>`);
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    el.innerHTML = html;
 }
 
-// Tab switching
-document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
-        btn.classList.add('tab-active');
+// ─────────────────────────────────────────────────────────────────────────
+// ── Tech Stack ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderTech(data) {
+    const el = document.getElementById('panel-tech');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
 
-        const tool = btn.dataset.tool;
-        if (tool === 'all') {
-            document.querySelectorAll('[id^="result-"]').forEach(el => {
-                if (currentResults[el.id.replace('result-', '')]) {
-                    el.classList.remove('hidden');
-                }
-            });
-        } else {
-            document.querySelectorAll('[id^="result-"]').forEach(el => {
-                el.classList.add('hidden');
-            });
-            if (currentResults[tool]) {
-                document.getElementById(`result-${tool}`).classList.remove('hidden');
-            }
-        }
+    const categories = [
+        { key:'server',       label:'Server',       color:'chip-blue',   icon:'fa-server' },
+        { key:'cdn',          label:'CDN',           color:'chip-accent', icon:'fa-cloud' },
+        { key:'hosting',      label:'Hosting',       color:'chip-accent', icon:'fa-building' },
+        { key:'powered_by',   label:'Powered By',    color:'chip-blue',   icon:'fa-bolt' },
+        { key:'cms',          label:'CMS',           color:'chip-purple', icon:'fa-pen-to-square' },
+        { key:'frameworks',   label:'Frameworks',    color:'chip-green',  icon:'fa-layer-group' },
+        { key:'js_libraries', label:'JS Libraries',  color:'chip-yellow', icon:'fa-js' },
+        { key:'analytics',    label:'Analytics',     color:'chip-orange', icon:'fa-chart-bar' },
+    ];
+
+    let html = `<div style="max-width:900px">`;
+    html += `<div class="card"><div class="section-label">Detected Technology Stack</div>`;
+
+    let found = false;
+    categories.forEach(cat => {
+        const val = data[cat.key];
+        const items = Array.isArray(val) ? val : (val ? [val] : []);
+        if (!items.length) return;
+        found = true;
+
+        html += `<div class="check-row" style="padding:10px 0">
+            <div class="check-name"><i class="fas ${cat.icon}" style="color:var(--muted)"></i>${cat.label}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end">
+                ${items.map(i => `<span class="chip ${cat.color}">${esc(i)}</span>`).join('')}
+            </div>
+        </div>`;
     });
-});
 
-// Auto-analyze if URL is provided
-{% if url %}
-document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('analyzeForm').dispatchEvent(new Event('submit'));
-});
-{% endif %}
+    if (!found) {
+        html += `<div style="color:var(--muted);font-size:12px;padding:16px 0">No technology signatures detected</div>`;
+    }
+
+    html += `</div>`;
+
+    // Raw headers
+    if (data.interesting_headers && Object.keys(data.interesting_headers).length) {
+        html += `<div class="card"><div class="section-label">Interesting Headers</div>
+            <div class="kv-grid">`;
+        Object.entries(data.interesting_headers).forEach(([k,v]) => {
+            html += `<div class="kv-row"><span class="kv-key">${esc(k)}</span><span class="kv-val">${esc(v)}</span></div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ── Cookies ───────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderCookies(data) {
+    const el = document.getElementById('panel-cookies');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
+
+    const cookies = data.cookies || [];
+    let html = `<div style="max-width:900px">`;
+
+    if (!cookies.length) {
+        html += `<div class="card"><div style="color:var(--muted);font-size:12px;padding:8px 0">No cookies set on this URL</div></div>`;
+        html += `</div>`;
+        el.innerHTML = html;
+        return;
+    }
+
+    // Summary
+    const avgScore = Math.round(cookies.reduce((s,c) => s + c.score, 0) / cookies.length);
+    const good = cookies.filter(c => c.grade === 'A' || c.grade === 'B').length;
+    html += `<div class="card" style="display:flex;align-items:center;gap:32px;padding:20px 24px">
+        <div class="score-display" style="padding:0">
+            <div class="score-number ${gradeClass(avgScore>=80?'A':avgScore>=60?'B':avgScore>=40?'C':'F')}">${good}/${cookies.length}</div>
+            <div class="score-label">cookies pass</div>
+        </div>
+        <div style="flex:1;font-size:12px;color:var(--muted);line-height:1.7">
+            ${cookies.length} cookie${cookies.length>1?'s':''} detected ·
+            ${cookies.filter(c=>c.secure).length} Secure ·
+            ${cookies.filter(c=>c.httponly).length} HttpOnly ·
+            ${cookies.filter(c=>c.samesite).length} SameSite
+        </div>
+    </div>`;
+
+    // Per-cookie cards
+    cookies.forEach(c => {
+        const g = c.grade || 'F';
+        html += `<div class="card" style="margin-top:10px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                <span class="grade ${gradeClass(g)}">${g}</span>
+                <span style="font-weight:700;font-size:13px">${esc(c.name)}</span>
+                <span style="color:var(--muted);font-size:11px;margin-left:auto">${c.score}/100</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:${c.issues?.length?'10px':'0'}">
+                <span class="${c.secure?'pill pill-green':'pill pill-red'}"><i class="fas ${c.secure?'fa-check':'fa-times'}"></i>Secure</span>
+                <span class="${c.httponly?'pill pill-green':'pill pill-red'}"><i class="fas ${c.httponly?'fa-check':'fa-times'}"></i>HttpOnly</span>
+                <span class="${c.samesite?'pill pill-green':'pill pill-yellow'}"><i class="fas ${c.samesite?'fa-check':'fa-minus'}"></i>SameSite${c.samesite?' ('+esc(c.samesite)+')':''}</span>
+                ${c.domain?`<span class="pill pill-muted">Domain: ${esc(c.domain)}</span>`:''}
+                ${c.max_age?`<span class="pill pill-muted">Max-Age: ${esc(c.max_age)}</span>`:''}
+            </div>
+            ${c.issues?.length ? `<div style="margin-top:8px">${c.issues.map(i=>`<div class="rec-item rec-warning" style="margin-bottom:4px"><i class="fas fa-exclamation-triangle rec-icon" style="color:var(--yellow)"></i>${esc(i)}</div>`).join('')}</div>` : ''}
+        </div>`;
+    });
+
+    html += `</div>`;
+    el.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// ── Intel ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+function renderIntel(data) {
+    const el = document.getElementById('panel-intel');
+    if (data.error) { el.innerHTML = `<div class="error-box"><i class="fas fa-exclamation-circle"></i>${esc(data.error)}</div>`; return; }
+
+    let html = `<div style="max-width:900px">`;
+
+    // WHOIS
+    if (data.whois && !data.whois.error) {
+        const w = data.whois;
+        html += `<div class="card"><div class="section-label">WHOIS</div>
+            <div class="kv-grid">
+                ${w.registrar ? `<div class="kv-row"><span class="kv-key">Registrar</span><span class="kv-val">${esc(w.registrar)}</span></div>` : ''}
+                ${w.organization ? `<div class="kv-row"><span class="kv-key">Organization</span><span class="kv-val">${esc(w.organization)}</span></div>` : ''}
+                ${w.country ? `<div class="kv-row"><span class="kv-key">Country</span><span class="kv-val">${esc(w.country)}</span></div>` : ''}
+                ${w.creation_date ? `<div class="kv-row"><span class="kv-key">Created</span><span class="kv-val">${esc(w.creation_date)}</span></div>` : ''}
+                ${w.expiration_date ? `<div class="kv-row"><span class="kv-key">Expires</span><span class="kv-val">${esc(w.expiration_date)}</span></div>` : ''}
+                ${w.updated_date ? `<div class="kv-row"><span class="kv-key">Updated</span><span class="kv-val">${esc(w.updated_date)}</span></div>` : ''}
+                ${w.name_servers?.length ? `<div class="kv-row"><span class="kv-key">Name Servers</span><span class="kv-val">${w.name_servers.slice(0,6).map(ns=>`<span class="chip">${esc(ns)}</span>`).join('')}</span></div>` : ''}
+                ${w.status?.length ? `<div class="kv-row"><span class="kv-key">Status</span><span class="kv-val">${w.status.slice(0,3).map(s=>`<span class="chip chip-blue">${esc(s.split(' ')[0])}</span>`).join('')}</span></div>` : ''}
+            </div>
+        </div>`;
+    } else if (data.whois?.error) {
+        html += `<div class="card"><div class="section-label">WHOIS</div><div style="color:var(--muted);font-size:12px">${esc(data.whois.error)}</div></div>`;
+    }
+
+    // DNS
+    if (data.dns) {
+        html += `<div class="card"><div class="section-label">DNS Resolution</div>
+            <div class="kv-grid">
+                ${(data.dns.a_records||[]).length ? `<div class="kv-row"><span class="kv-key">A Records</span><span class="kv-val">${data.dns.a_records.map(ip=>`<span class="chip chip-accent">${esc(ip)}</span>`).join('')}</span></div>` : ''}
+                ${(data.dns.aaaa_records||[]).length ? `<div class="kv-row"><span class="kv-key">AAAA Records</span><span class="kv-val">${data.dns.aaaa_records.map(ip=>`<span class="chip chip-accent">${esc(ip)}</span>`).join('')}</span></div>` : ''}
+                ${(data.dns.mx_records||[]).length ? `<div class="kv-row"><span class="kv-key">MX Records</span><span class="kv-val">${data.dns.mx_records.map(mx=>`<span class="chip">${esc(mx)}</span>`).join('')}</span></div>` : ''}
+                ${(data.dns.ns_records||[]).length ? `<div class="kv-row"><span class="kv-key">NS Records</span><span class="kv-val">${data.dns.ns_records.map(ns=>`<span class="chip">${esc(ns)}</span>`).join('')}</span></div>` : ''}
+                ${data.dns.cname ? `<div class="kv-row"><span class="kv-key">CNAME</span><span class="kv-val"><span class="chip">${esc(data.dns.cname)}</span></span></div>` : ''}
+            </div>
+        </div>`;
+    }
+
+    // Links
+    if (data.links) {
+        html += `<div class="card"><div class="section-label">Link Analysis</div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:12px">
+                <div class="stat-block"><div class="stat-value" style="color:var(--accent)">${data.links.internal}</div><div class="stat-label">Internal links</div></div>
+                <div class="stat-block"><div class="stat-value" style="color:var(--purple)">${data.links.external}</div><div class="stat-label">External links</div></div>
+                <div class="stat-block"><div class="stat-value" style="color:var(--text)">${data.links.total}</div><div class="stat-label">Total links</div></div>
+            </div>
+            ${data.links.external_domains?.length ? `<div style="margin-top:8px"><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Top external domains</div>${data.links.external_domains.slice(0,15).map(d=>`<span class="chip">${esc(d)}</span>`).join('')}</div>` : ''}
+        </div>`;
+    }
+
+    // Robots.txt
+    if (data.robots) {
+        html += `<div class="card"><div class="section-label">robots.txt — <span style="color:${data.robots.found?'var(--green)':'var(--muted)'};">${data.robots.found?'Found':'Not found'}</span></div>`;
+        if (data.robots.found && data.robots.content) {
+            html += `<pre class="code-block">${esc(data.robots.content.slice(0,2000))}${data.robots.content.length>2000?'\n… (truncated)':''}</pre>`;
+        }
+        html += `</div>`;
+    }
+
+    // Sitemap
+    if (data.sitemap) {
+        html += `<div class="card"><div class="section-label">Sitemap</div>`;
+        if (data.sitemap.found) {
+            html += `<div class="kv-grid">
+                <div class="kv-row"><span class="kv-key">Status</span><span class="kv-val"><span class="pill pill-green"><i class="fas fa-check"></i>Found</span></span></div>
+                <div class="kv-row"><span class="kv-key">URL</span><span class="kv-val">${esc(data.sitemap.url)}</span></div>
+                ${data.sitemap.url_count !== null ? `<div class="kv-row"><span class="kv-key">URLs indexed</span><span class="kv-val">${data.sitemap.url_count.toLocaleString()}</span></div>` : ''}
+            </div>`;
+        } else {
+            html += `<div style="color:var(--muted);font-size:12px">No sitemap.xml found at /sitemap.xml or /sitemap_index.xml</div>`;
+        }
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    el.innerHTML = html;
+}
+
+// ── Auto-scan if URL pre-loaded ────────────────────────────────────────────
+const preloadUrl = document.getElementById('globalUrlInput').value.trim();
+if (preloadUrl) {
+    document.addEventListener('DOMContentLoaded', () => runScan(preloadUrl));
+}
 </script>
 {% endblock %}

@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  webscience:
+    build: .
+    image: webscience:latest
+    container_name: webscience
+    restart: unless-stopped
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DNSSCIENCE_PATH=/dnsscience
+    volumes:
+      - /opt/dnsscience:/dnsscience:ro
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.webscience.rule=Host(`webscience.io`) || Host(`www.webscience.io`)"
+      - "traefik.http.routers.webscience.entrypoints=websecure"
+      - "traefik.http.routers.webscience.tls.certresolver=letsencrypt"
+      - "traefik.http.services.webscience.loadbalancer.server.port=5003"
+
+networks:
+  traefik-public:
+    external: true

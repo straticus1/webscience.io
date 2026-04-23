@@ -21,9 +21,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 import time
 
+from bs4 import BeautifulSoup
+import dns.resolver
+import dns.reversename
+import whois as whois_lib
+
 # Shared authentication with DNSScience ecosystem
 import sys
-sys.path.insert(0, '/Users/ryan/development/afterdarksys.com/subdomains/dnsscience')
+_dnsscience_path = os.environ.get(
+    'DNSSCIENCE_PATH',
+    '/Users/ryan/development/afterdarksys.com/subdomains/dnsscience'
+)
+sys.path.insert(0, _dnsscience_path)
 from database import Database
 from auth import UserAuth, login_required, optional_auth
 
@@ -212,73 +221,366 @@ def analyze_security_headers(headers):
     }
 
 def extract_meta_tags(html):
-    """Extract meta tags from HTML"""
+    """Extract meta tags from HTML using BeautifulSoup"""
     meta = {
-        'title': None,
-        'description': None,
-        'keywords': None,
-        'author': None,
-        'viewport': None,
-        'robots': None,
-        'canonical': None,
-        'og': {},
-        'twitter': {},
-        'structured_data': []
+        'title': None, 'description': None, 'keywords': None,
+        'author': None, 'viewport': None, 'robots': None,
+        'canonical': None, 'og': {}, 'twitter': {}, 'structured_data': []
     }
+    try:
+        soup = BeautifulSoup(html, 'lxml')
+    except Exception:
+        soup = BeautifulSoup(html, 'html.parser')
 
-    # Title
-    title_match = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
-    if title_match:
-        meta['title'] = title_match.group(1).strip()
+    title_tag = soup.find('title')
+    if title_tag:
+        meta['title'] = title_tag.get_text(strip=True)
 
-    # Meta tags
-    meta_pattern = r'<meta\s+([^>]+)>'
-    for match in re.finditer(meta_pattern, html, re.IGNORECASE):
-        attrs = match.group(1)
+    for tag in soup.find_all('meta'):
+        name = (tag.get('name') or '').lower()
+        prop = (tag.get('property') or '').lower()
+        content = tag.get('content', '')
 
-        name_match = re.search(r'name=["\']([^"\']+)["\']', attrs, re.IGNORECASE)
-        property_match = re.search(r'property=["\']([^"\']+)["\']', attrs, re.IGNORECASE)
-        content_match = re.search(r'content=["\']([^"\']*)["\']', attrs, re.IGNORECASE)
+        if name == 'description':    meta['description'] = content
+        elif name == 'keywords':     meta['keywords'] = content
+        elif name == 'author':       meta['author'] = content
+        elif name == 'viewport':     meta['viewport'] = content
+        elif name == 'robots':       meta['robots'] = content
+        elif name.startswith('twitter:'): meta['twitter'][name[8:]] = content
 
-        content = content_match.group(1) if content_match else None
+        if prop.startswith('og:'):   meta['og'][prop[3:]] = content
 
-        if name_match:
-            name = name_match.group(1).lower()
-            if name == 'description':
-                meta['description'] = content
-            elif name == 'keywords':
-                meta['keywords'] = content
-            elif name == 'author':
-                meta['author'] = content
-            elif name == 'viewport':
-                meta['viewport'] = content
-            elif name == 'robots':
-                meta['robots'] = content
-            elif name.startswith('twitter:'):
-                meta['twitter'][name.replace('twitter:', '')] = content
+    canonical = soup.find('link', rel='canonical')
+    if canonical:
+        meta['canonical'] = canonical.get('href')
 
-        if property_match:
-            prop = property_match.group(1).lower()
-            if prop.startswith('og:'):
-                meta['og'][prop.replace('og:', '')] = content
-
-    # Canonical
-    canonical_match = re.search(r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)["\']', html, re.IGNORECASE)
-    if not canonical_match:
-        canonical_match = re.search(r'<link[^>]+href=["\']([^"\']+)["\'][^>]+rel=["\']canonical["\']', html, re.IGNORECASE)
-    if canonical_match:
-        meta['canonical'] = canonical_match.group(1)
-
-    # Structured data (JSON-LD)
-    ld_pattern = r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>([^<]+)</script>'
-    for match in re.finditer(ld_pattern, html, re.IGNORECASE):
+    for script in soup.find_all('script', type='application/ld+json'):
         try:
-            data = json.loads(match.group(1))
-            meta['structured_data'].append(data)
-        except:
+            meta['structured_data'].append(json.loads(script.string or ''))
+        except Exception:
             pass
 
     return meta
+
+
+def detect_technologies(headers, html):
+    """Fingerprint server, CDN, CMS, frameworks, and analytics from headers + HTML"""
+    h = {k.lower(): v for k, v in headers.items()}
+    result = {
+        'server': h.get('server', '') or None,
+        'powered_by': h.get('x-powered-by', '') or None,
+        'cdn': None,
+        'hosting': None,
+        'cms': [],
+        'frameworks': [],
+        'js_libraries': [],
+        'analytics': [],
+        'interesting_headers': {},
+    }
+
+    # CDN / hosting from headers
+    cdn_header_map = [
+        ('cf-ray',                'Cloudflare'),
+        ('x-vercel-id',           'Vercel'),
+        ('x-nf-request-id',       'Netlify'),
+        ('x-amz-cf-id',           'AWS CloudFront'),
+        ('x-akamai-request-id',   'Akamai'),
+        ('x-fastly-request-id',   'Fastly'),
+        ('surrogate-key',         'Fastly'),
+        ('x-azure-ref',           'Azure CDN'),
+        ('x-github-request-id',   'GitHub Pages'),
+        ('fly-request-id',        'Fly.io'),
+        ('x-render-origin-server','Render'),
+        ('x-railway-request-id',  'Railway'),
+    ]
+    for header, name in cdn_header_map:
+        if header in h:
+            result['cdn'] = name
+            break
+
+    # Server header fallback for CDN
+    if not result['cdn'] and result['server']:
+        srv = result['server'].lower()
+        if 'cloudflare' in srv:  result['cdn'] = 'Cloudflare'
+        elif 'netlify'  in srv:  result['cdn'] = 'Netlify'
+        elif 'vercel'   in srv:  result['cdn'] = 'Vercel'
+
+    hosting_map = [
+        ('x-vercel-id',            'Vercel'),
+        ('x-nf-request-id',        'Netlify'),
+        ('x-github-request-id',    'GitHub Pages'),
+        ('x-heroku-queue-wait-time','Heroku'),
+        ('x-amzn-requestid',       'AWS'),
+        ('x-cloud-trace-context',  'Google Cloud'),
+        ('fly-request-id',         'Fly.io'),
+        ('x-render-origin-server', 'Render'),
+        ('x-railway-request-id',   'Railway'),
+    ]
+    for header, name in hosting_map:
+        if header in h:
+            result['hosting'] = name
+            break
+
+    # Interesting headers worth surfacing
+    interesting = [
+        'x-powered-by', 'x-generator', 'x-drupal-cache', 'x-wordpress-cache',
+        'x-shopify-stage', 'x-wix-request-id', 'x-aspnet-version',
+        'x-aspnetmvc-version', 'x-runtime', 'x-request-id',
+    ]
+    for ih in interesting:
+        if ih in h and h[ih]:
+            result['interesting_headers'][ih] = h[ih]
+
+    if not html:
+        return result
+
+    # ── HTML fingerprinting ────────────────────────────────────────────────
+    # CMS
+    cms_signatures = [
+        ('/wp-content/',         'WordPress'),
+        ('/wp-includes/',        'WordPress'),
+        ('data-wpfc-',           'WordPress'),
+        ('/sites/default/files/','Drupal'),
+        ('data-drupal-',         'Drupal'),
+        ('/components/com_',     'Joomla'),
+        ('cdn.shopify.com',      'Shopify'),
+        ('Shopify.theme',        'Shopify'),
+        ('static.squarespace.com','Squarespace'),
+        ('wixstatic.com',        'Wix'),
+        ('/ghost/api/',          'Ghost'),
+        ('ghost.io',             'Ghost'),
+        ('webflow.com',          'Webflow'),
+        ('cdn.builder.io',       'Builder.io'),
+    ]
+    seen_cms = set()
+    for sig, name in cms_signatures:
+        if sig in html and name not in seen_cms:
+            result['cms'].append(name)
+            seen_cms.add(name)
+
+    # Frameworks
+    fw_signatures = [
+        ('__NEXT_DATA__',       'Next.js'),
+        ('/_next/',             'Next.js'),
+        ('__nuxt',              'Nuxt.js'),
+        ('/_nuxt/',             'Nuxt.js'),
+        ('___gatsby',           'Gatsby'),
+        ('/gatsby-',            'Gatsby'),
+        ('csrfmiddlewaretoken', 'Django'),
+        ('data-turbolinks',     'Rails/Turbolinks'),
+        ('data-turbo-',         'Rails/Turbo'),
+        ('sveltekit',           'SvelteKit'),
+        ('__sveltekit',         'SvelteKit'),
+        ('astro-island',        'Astro'),
+        ('x-astro-',            'Astro'),
+        ('remix-manifest',      'Remix'),
+        ('__remix_manifest',    'Remix'),
+        ('laravel_session',     'Laravel'),
+        ('_inertia',            'Inertia.js'),
+        ('livewire',            'Laravel Livewire'),
+    ]
+    seen_fw = set()
+    for sig, name in fw_signatures:
+        if sig in html and name not in seen_fw:
+            result['frameworks'].append(name)
+            seen_fw.add(name)
+
+    # JS libraries
+    js_signatures = [
+        ('__reactFiber',        'React'),
+        ('data-reactroot',      'React'),
+        ('React.createElement', 'React'),
+        ('__vue__',             'Vue.js'),
+        ('data-v-',             'Vue.js'),
+        ('Vue.config',          'Vue.js'),
+        ('ng-version',          'Angular'),
+        ('ng-app=',             'AngularJS'),
+        ('__svelte',            'Svelte'),
+        ('jQuery',              'jQuery'),
+        ('jquery.min.js',       'jQuery'),
+        ('hx-get=',             'HTMX'),
+        ('hx-post=',            'HTMX'),
+        ('x-data=',             'Alpine.js'),
+        ('alpine.min.js',       'Alpine.js'),
+        ('stimulus',            'Stimulus'),
+        ('turbo.es',            'Hotwire/Turbo'),
+    ]
+    seen_js = set()
+    for sig, name in js_signatures:
+        if sig in html and name not in seen_js:
+            result['js_libraries'].append(name)
+            seen_js.add(name)
+
+    # Analytics
+    analytics_signatures = [
+        ('google-analytics.com', 'Google Analytics'),
+        ('gtag(',                'Google Analytics'),
+        ('googletagmanager.com', 'Google Tag Manager'),
+        ('GTM-',                 'Google Tag Manager'),
+        ('plausible.io',         'Plausible'),
+        ('usefathom.com',        'Fathom'),
+        ('hotjar.com',           'Hotjar'),
+        ('mixpanel.com',         'Mixpanel'),
+        ('segment.com',          'Segment'),
+        ('posthog.com',          'PostHog'),
+        ('clarity.ms',           'Microsoft Clarity'),
+        ('heap.io',              'Heap'),
+        ('fullstory.com',        'FullStory'),
+        ('amplitude.com',        'Amplitude'),
+        ('intercom.io',          'Intercom'),
+        ('crisp.chat',           'Crisp'),
+        ('drift.com',            'Drift'),
+        ('hubspot.com',          'HubSpot'),
+    ]
+    seen_an = set()
+    for sig, name in analytics_signatures:
+        if sig in html and name not in seen_an:
+            result['analytics'].append(name)
+            seen_an.add(name)
+
+    # Check x-generator meta tag
+    gen_match = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)["\']', html, re.IGNORECASE)
+    if gen_match:
+        result['interesting_headers']['x-generator (meta)'] = gen_match.group(1)
+
+    return result
+
+
+def parse_cookies(response):
+    """Parse Set-Cookie headers and grade security attributes"""
+    cookies = []
+    raw_cookie_headers = []
+
+    # urllib3 HTTPHeaderDict supports getlist for duplicate headers
+    try:
+        raw_cookie_headers = response.raw.headers.getlist('Set-Cookie')
+    except Exception:
+        raw = response.headers.get('Set-Cookie', '')
+        if raw:
+            raw_cookie_headers = [raw]
+
+    for cookie_str in raw_cookie_headers:
+        parts = [p.strip() for p in cookie_str.split(';')]
+        if not parts or not parts[0]:
+            continue
+
+        name_value = parts[0].split('=', 1)
+        name = name_value[0].strip()
+        if not name:
+            continue
+        value = name_value[1] if len(name_value) > 1 else ''
+
+        attrs = {}
+        for part in parts[1:]:
+            if '=' in part:
+                k, v = part.split('=', 1)
+                attrs[k.strip().lower()] = v.strip()
+            else:
+                attrs[part.strip().lower()] = True
+
+        secure   = 'secure'   in attrs
+        httponly = 'httponly' in attrs
+        samesite = attrs.get('samesite')
+        max_age  = attrs.get('max-age')
+        expires  = attrs.get('expires')
+        domain   = attrs.get('domain', '')
+        path     = attrs.get('path', '/')
+
+        score = 0
+        issues = []
+        if secure:   score += 35
+        else:        issues.append('Missing Secure flag — cookie transmitted over HTTP')
+        if httponly: score += 35
+        else:        issues.append('Missing HttpOnly flag — accessible via JavaScript (XSS risk)')
+        if samesite:
+            ss_lower = samesite.lower()
+            if ss_lower == 'strict':   score += 30
+            elif ss_lower == 'lax':    score += 20
+            else:                      score += 5; issues.append('SameSite=None requires Secure flag')
+        else:
+            issues.append('Missing SameSite attribute — vulnerable to CSRF')
+
+        grade = 'A' if score >= 90 else 'B' if score >= 65 else 'C' if score >= 40 else 'F'
+
+        cookies.append({
+            'name':     name,
+            'value':    value[:24] + '…' if len(value) > 24 else value,
+            'secure':   secure,
+            'httponly': httponly,
+            'samesite': samesite,
+            'expires':  expires,
+            'max_age':  max_age,
+            'domain':   domain,
+            'path':     path,
+            'score':    score,
+            'grade':    grade,
+            'issues':   issues,
+        })
+
+    return cookies
+
+
+def resolve_host(hostname):
+    """Resolve hostname to IPs and reverse DNS"""
+    result = {'ips': [], 'reverse_dns': []}
+    try:
+        answers = dns.resolver.resolve(hostname, 'A', lifetime=5)
+        result['ips'] = [str(r) for r in answers]
+        for ip in result['ips'][:4]:
+            try:
+                rev = dns.resolver.resolve(dns.reversename.from_address(ip), 'PTR', lifetime=3)
+                result['reverse_dns'].append({'ip': ip, 'hostname': str(rev[0]).rstrip('.')})
+            except Exception:
+                result['reverse_dns'].append({'ip': ip, 'hostname': None})
+    except Exception as e:
+        result['error'] = str(e)
+    return result
+
+
+def get_dns_intel(hostname):
+    """Full DNS intel: A, AAAA, MX, NS, CNAME records"""
+    result = {'a_records': [], 'aaaa_records': [], 'mx_records': [], 'ns_records': [], 'cname': None}
+    for rtype, key in [('A','a_records'), ('AAAA','aaaa_records'), ('NS','ns_records')]:
+        try:
+            ans = dns.resolver.resolve(hostname, rtype, lifetime=5)
+            result[key] = [str(r).rstrip('.') for r in ans]
+        except Exception:
+            pass
+    try:
+        mx = dns.resolver.resolve(hostname, 'MX', lifetime=5)
+        result['mx_records'] = [f"{r.preference} {str(r.exchange).rstrip('.')}" for r in sorted(mx, key=lambda x: x.preference)]
+    except Exception:
+        pass
+    try:
+        cname = dns.resolver.resolve(hostname, 'CNAME', lifetime=5)
+        result['cname'] = str(cname[0].target).rstrip('.')
+    except Exception:
+        pass
+    return result
+
+
+def get_whois_info(domain):
+    """WHOIS lookup with normalized output"""
+    try:
+        w = whois_lib.whois(domain)
+
+        def first(val):
+            if isinstance(val, list):
+                return str(val[0]) if val else None
+            return str(val) if val else None
+
+        return {
+            'registrar':       first(w.registrar),
+            'organization':    first(w.org),
+            'country':         first(w.country),
+            'creation_date':   first(w.creation_date),
+            'expiration_date': first(w.expiration_date),
+            'updated_date':    first(w.updated_date),
+            'name_servers':    [str(ns).lower() for ns in (w.name_servers or [])],
+            'status':          [str(s) for s in (w.status if isinstance(w.status, list) else [w.status] if w.status else [])],
+        }
+    except Exception as e:
+        return {'error': str(e)}
 
 def calculate_seo_score(meta, html):
     """Calculate SEO score based on meta tags and content"""
@@ -363,7 +665,8 @@ def calculate_seo_score(meta, html):
 @app.route('/')
 @optional_auth
 def index():
-    return render_template('index.html', tools=TOOLS)
+    url = request.args.get('url', '')
+    return render_template('analyze.html', url=url, tools=TOOLS)
 
 @app.route('/analyze')
 @optional_auth
@@ -371,30 +674,26 @@ def analyze():
     url = request.args.get('url', '')
     return render_template('analyze.html', url=url, tools=TOOLS)
 
+# Individual tool routes redirect to main workspace with tab pre-selected
 @app.route('/http')
-@optional_auth
 def http_tool():
-    return render_template('tools/http.html', tool=TOOLS['http'])
+    return redirect(f'/?tab=http&url={request.args.get("url","")}')
 
 @app.route('/security')
-@optional_auth
 def security_tool():
-    return render_template('tools/security.html', tool=TOOLS['security'])
+    return redirect(f'/?tab=security&url={request.args.get("url","")}')
 
 @app.route('/performance')
-@optional_auth
 def performance_tool():
-    return render_template('tools/performance.html', tool=TOOLS['performance'])
+    return redirect(f'/?tab=performance&url={request.args.get("url","")}')
 
 @app.route('/seo')
-@optional_auth
 def seo_tool():
-    return render_template('tools/seo.html', tool=TOOLS['seo'])
+    return redirect(f'/?tab=seo&url={request.args.get("url","")}')
 
 @app.route('/screenshot')
-@optional_auth
 def screenshot_tool():
-    return render_template('tools/screenshot.html', tool=TOOLS['screenshot'])
+    return redirect('/?tab=intel')
 
 @app.route('/monitor')
 @login_required
@@ -486,6 +785,9 @@ def api_http_analyze():
                 'total_ms': sum(r['time_ms'] for r in results['redirects']),
                 'redirect_count': len(results['redirects']) - 1
             }
+
+        # Host resolution
+        results['host_info'] = resolve_host(parsed.netloc)
 
         return jsonify(results)
 
@@ -640,13 +942,16 @@ def api_performance_analyze():
             'content_type': response.headers.get('Content-Type', 'unknown')
         }
 
-        # Parse HTML for resources
+        # Parse HTML for resources using BS4
         html = content.decode('utf-8', errors='ignore')
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+        except Exception:
+            soup = BeautifulSoup(html, 'html.parser')
 
-        # Count resources
-        scripts = len(re.findall(r'<script[^>]+src=', html, re.IGNORECASE))
-        stylesheets = len(re.findall(r'<link[^>]+stylesheet', html, re.IGNORECASE))
-        images = len(re.findall(r'<img[^>]+src=', html, re.IGNORECASE))
+        scripts     = len(soup.find_all('script', src=True))
+        stylesheets = len(soup.find_all('link', rel=lambda r: r and 'stylesheet' in r))
+        images      = len(soup.find_all('img', src=True))
 
         results['resources'] = {
             'scripts': scripts,
@@ -730,21 +1035,27 @@ def api_seo_analyze():
         )
 
         html = response.text
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+        except Exception:
+            soup = BeautifulSoup(html, 'html.parser')
+
         meta = extract_meta_tags(html)
         seo_score = calculate_seo_score(meta, html)
 
-        # Additional checks
-        h1_count = len(re.findall(r'<h1[^>]*>', html, re.IGNORECASE))
+        # H1 count via BS4
+        h1_tags = soup.find_all('h1')
+        h1_count = len(h1_tags)
         if h1_count == 0:
             seo_score['issues'].append('No H1 tag found')
         elif h1_count > 1:
-            seo_score['warnings'].append(f'Multiple H1 tags ({h1_count}) - consider using only one')
+            seo_score['warnings'].append(f'Multiple H1 tags ({h1_count}) — use only one per page')
 
-        # Check for alt tags on images
-        images = re.findall(r'<img[^>]+>', html, re.IGNORECASE)
-        images_without_alt = sum(1 for img in images if 'alt=' not in img.lower())
+        # Image alt audit via BS4
+        images = soup.find_all('img')
+        images_without_alt = sum(1 for img in images if not img.get('alt'))
         if images_without_alt > 0:
-            seo_score['warnings'].append(f'{images_without_alt} images missing alt attributes')
+            seo_score['warnings'].append(f'{images_without_alt} image{"s" if images_without_alt>1 else ""} missing alt attribute')
 
         results = {
             'url': url,
@@ -828,6 +1139,170 @@ def api_full_analyze():
                 results['results'][tool] = {'error': str(e)}
 
     return jsonify(results)
+
+# =============================================================================
+# API Routes - Technology Fingerprinting
+# =============================================================================
+
+@app.route('/api/tech/analyze', methods=['POST'])
+@optional_auth
+def api_tech_analyze():
+    """Detect server, CDN, CMS, frameworks, analytics, and JS libraries"""
+    data = request.get_json() or {}
+    url = normalize_url(data.get('url'))
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    try:
+        response = requests.get(
+            url, timeout=30,
+            headers={'User-Agent': 'WebScience.io Tech Analyzer/1.0'}
+        )
+        result = detect_technologies(response.headers, response.text)
+        result['url'] = url
+        result['timestamp'] = datetime.utcnow().isoformat()
+        return jsonify(result)
+    except Exception as e:
+        logger.exception(f"Tech analyze error for {url}")
+        return jsonify({'error': str(e), 'url': url}), 500
+
+
+# =============================================================================
+# API Routes - Cookie Inspector
+# =============================================================================
+
+@app.route('/api/cookies/analyze', methods=['POST'])
+@optional_auth
+def api_cookies_analyze():
+    """Inspect cookies for security attributes and grade each one"""
+    data = request.get_json() or {}
+    url = normalize_url(data.get('url'))
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    try:
+        response = requests.get(
+            url, timeout=30,
+            headers={'User-Agent': 'WebScience.io Cookie Inspector/1.0'},
+            allow_redirects=True
+        )
+        cookies = parse_cookies(response)
+        return jsonify({
+            'url': url,
+            'timestamp': datetime.utcnow().isoformat(),
+            'cookies': cookies,
+            'count': len(cookies),
+        })
+    except Exception as e:
+        logger.exception(f"Cookie analyze error for {url}")
+        return jsonify({'error': str(e), 'url': url}), 500
+
+
+# =============================================================================
+# API Routes - Domain Intel (WHOIS + DNS + robots + sitemap + links)
+# =============================================================================
+
+@app.route('/api/intel/analyze', methods=['POST'])
+@optional_auth
+def api_intel_analyze():
+    """Domain intelligence: WHOIS, DNS records, robots.txt, sitemap, link analysis"""
+    data = request.get_json() or {}
+    url = normalize_url(data.get('url'))
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+
+    parsed = urlparse(url)
+    hostname = parsed.netloc
+    # Strip port if present
+    hostname = hostname.split(':')[0]
+    base_url = f"{parsed.scheme}://{parsed.netloc}"
+
+    result = {
+        'url': url,
+        'hostname': hostname,
+        'timestamp': datetime.utcnow().isoformat(),
+        'whois': None,
+        'dns': None,
+        'robots': None,
+        'sitemap': None,
+        'links': None,
+    }
+
+    # Run WHOIS + DNS in parallel with page fetch
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        # Extract registrable domain for WHOIS (strip subdomains)
+        parts = hostname.split('.')
+        domain = '.'.join(parts[-2:]) if len(parts) >= 2 else hostname
+
+        f_whois  = ex.submit(get_whois_info, domain)
+        f_dns    = ex.submit(get_dns_intel, hostname)
+        f_page   = ex.submit(requests.get, url, timeout=30,
+                             headers={'User-Agent': 'WebScience.io Intel/1.0'})
+        f_robots = ex.submit(requests.get, f"{base_url}/robots.txt", timeout=10,
+                             headers={'User-Agent': 'WebScience.io Intel/1.0'})
+
+        result['whois'] = f_whois.result()
+        result['dns']   = f_dns.result()
+
+        # robots.txt
+        try:
+            robots_resp = f_robots.result()
+            result['robots'] = {
+                'found':   robots_resp.status_code == 200,
+                'content': robots_resp.text if robots_resp.status_code == 200 else None,
+            }
+        except Exception:
+            result['robots'] = {'found': False, 'content': None}
+
+        # Page HTML for link analysis
+        try:
+            page_resp = f_page.result()
+            soup = BeautifulSoup(page_resp.text, 'lxml')
+            links = soup.find_all('a', href=True)
+            internal, external = 0, 0
+            ext_domains = {}
+            for a in links:
+                href = a['href'].strip()
+                if not href or href.startswith('#') or href.startswith('mailto:') or href.startswith('tel:'):
+                    continue
+                abs_href = urljoin(url, href)
+                link_parsed = urlparse(abs_href)
+                if link_parsed.netloc == parsed.netloc or not link_parsed.netloc:
+                    internal += 1
+                else:
+                    external += 1
+                    ext_domains[link_parsed.netloc] = ext_domains.get(link_parsed.netloc, 0) + 1
+
+            top_ext = sorted(ext_domains.items(), key=lambda x: -x[1])
+            result['links'] = {
+                'internal': internal,
+                'external': external,
+                'total':    internal + external,
+                'external_domains': [d for d, _ in top_ext[:20]],
+            }
+        except Exception:
+            result['links'] = None
+
+    # Sitemap (try common paths)
+    sitemap_found = False
+    for path in ['/sitemap.xml', '/sitemap_index.xml', '/sitemap/sitemap.xml']:
+        try:
+            sr = requests.get(f"{base_url}{path}", timeout=10,
+                              headers={'User-Agent': 'WebScience.io Intel/1.0'})
+            if sr.status_code == 200 and '<url' in sr.text.lower():
+                url_count = sr.text.lower().count('<url>')
+                result['sitemap'] = {
+                    'found': True,
+                    'url': f"{base_url}{path}",
+                    'url_count': url_count if url_count > 0 else None,
+                }
+                sitemap_found = True
+                break
+        except Exception:
+            pass
+    if not sitemap_found:
+        result['sitemap'] = {'found': False, 'url': None, 'url_count': None}
+
+    return jsonify(result)
+
 
 # =============================================================================
 # API Routes - Screenshot (Placeholder)
