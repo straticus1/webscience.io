@@ -10,7 +10,7 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       - DNSSCIENCE_PATH=/dnsscience
     volumes:
-      - /opt/dnsscience:/dnsscience:ro
+      - /opt/dnsscience.io:/dnsscience:ro
     networks:
       - traefik-public
     labels:
