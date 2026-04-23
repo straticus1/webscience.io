@@ -32,7 +32,9 @@ _dnsscience_path = os.environ.get(
     'DNSSCIENCE_PATH',
     '/Users/ryan/development/afterdarksys.com/subdomains/dnsscience'
 )
+# On the server: database.py lives at root, auth.py lives in api/
 sys.path.insert(0, _dnsscience_path)
+sys.path.insert(0, os.path.join(_dnsscience_path, 'api'))
 from database import Database
 from auth import UserAuth, login_required, optional_auth
 
