@@ -26,17 +26,33 @@ import dns.resolver
 import dns.reversename
 import whois as whois_lib
 
-# Shared authentication with DNSScience ecosystem
+# Shared authentication with DNSScience ecosystem (optional — no-ops if DB not configured)
 import sys
 _dnsscience_path = os.environ.get(
     'DNSSCIENCE_PATH',
     '/Users/ryan/development/afterdarksys.com/subdomains/dnsscience'
 )
-# On the server: database.py lives at root, auth.py lives in api/
 sys.path.insert(0, _dnsscience_path)
 sys.path.insert(0, os.path.join(_dnsscience_path, 'api'))
-from database import Database
-from auth import UserAuth, login_required, optional_auth
+
+try:
+    from database import Database
+    from auth import UserAuth, login_required, optional_auth
+    _auth_available = True
+except Exception as _auth_err:
+    logging.getLogger(__name__).warning(f"DNSScience auth unavailable: {_auth_err}")
+    _auth_available = False
+    # Stub decorators — all routes proceed as unauthenticated
+    def login_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            return f(*args, **kwargs)
+        return decorated
+    def optional_auth(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            return f(*args, **kwargs)
+        return decorated
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
